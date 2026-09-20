@@ -7,20 +7,27 @@ import type { TokenizerConfig, TokenizerJson } from "./tokenizer.ts";
 import type { AgentConfig, Batch, RunnerOutput } from "./types.ts";
 
 /**
- * A minimal, valid batch (1 row, length 8, 2 markers) used to probe a freshly created session
- * before accepting its execution provider. Token/marker values are arbitrary (pad id 0, marker
- * positions 1 and 2) — the graph does not care what they are, only that the shapes are valid.
+ * A minimal, valid batch (2 rows, length 8, 3 markers, one row per qtype family used here) used
+ * to probe a freshly created session before accepting its execution provider. Token/marker
+ * values are arbitrary (pad id 0, marker positions 1-3) — the graph does not care what they are,
+ * only that the shapes are valid and more than one row/qtype is exercised.
+ *
+ * This only proves the provider can execute the graph at all (session creation succeeds and a
+ * `run()` returns finite-shaped output) for this one shape; it is not a numerical-correctness
+ * check, and it does not cover every shape `agent.predict()` can produce (variable sequence
+ * length, marker count, batch size). The browser parity e2e test (apps/demo/e2e/parity.spec.ts),
+ * which replays real fixture data end to end, is the real correctness gate.
  */
 function probeBatch(): Batch {
   return {
-    rows: 1,
+    rows: 2,
     length: 8,
-    markers: 2,
-    inputIds: new BigInt64Array(8).fill(0n),
-    attentionMask: new BigInt64Array(8).fill(1n),
-    markerPos: BigInt64Array.from([1n, 2n]),
-    markerMask: Uint8Array.from([1, 1]),
-    qtype: BigInt64Array.from([0n]),
+    markers: 3,
+    inputIds: new BigInt64Array(16).fill(0n),
+    attentionMask: new BigInt64Array(16).fill(1n),
+    markerPos: BigInt64Array.from([1n, 2n, 3n, 1n, 2n, 3n]),
+    markerMask: Uint8Array.from([1, 1, 1, 1, 1, 1]),
+    qtype: BigInt64Array.from([0n, 2n]),
   };
 }
 

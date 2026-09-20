@@ -4,15 +4,10 @@ export const MODEL_URL: string =
   "https://huggingface.co/mizchi/laya-multilingual-onnx/resolve/main/";
 
 /**
- * Where onnxruntime-web finds its .wasm/.mjs assets.
- *
- * In prod, `vite-plugin-static-copy` copies them into `dist/ort/` at build time (see
- * vite.config.ts) and they are served alongside the page. In dev, that plugin's dev-serve
- * middleware populates its file map asynchronously on `buildStart`, which races a freshly
- * started dev server (a request that lands before the map is ready falls through to Vite's
- * SPA `index.html` fallback instead of 404ing, so failures are silent) — so in dev we instead
- * serve the same files straight out of `node_modules`, which Vite always serves without delay.
+ * Where onnxruntime-web finds its .wasm/.mjs assets. The same path is valid in both dev and
+ * prod: `vite-plugin-static-copy` copies the files into `dist/ort/` at build time (see
+ * vite.config.ts) for prod, and a `configureServer` middleware there (`ortDevAssetsPlugin`)
+ * serves the same files from `node_modules/onnxruntime-web/dist/` under `/ort/` during
+ * `vite dev`, so there is no dev/prod branch here.
  */
-export const ORT_WASM_PATHS: string = import.meta.env.DEV
-  ? "/node_modules/onnxruntime-web/dist/"
-  : `${import.meta.env.BASE_URL}ort/`;
+export const ORT_WASM_PATHS: string = `${import.meta.env.BASE_URL}ort/`;

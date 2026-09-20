@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { confidenceFromProbs, formatAnswers, softmax, tempBucket } from "../src/calibration.ts";
+import {
+  argmax,
+  confidenceFromProbs,
+  formatAnswers,
+  softmax,
+  tempBucket,
+} from "../src/calibration.ts";
 import { toInternal } from "../src/questions.ts";
 import { fixture } from "./fixtures.ts";
 
@@ -15,6 +21,10 @@ describe("helpers", () => {
     expect(tempBucket(1, 5)).toBe("score:3-5");
     expect(tempBucket(0, 10)).toBe("choice:6-10");
     expect(tempBucket(2, 11)).toBe("noul:11+");
+  });
+  it("argmax returns the first maximum on a tie", () => {
+    expect(argmax([1, 3, 2])).toBe(1);
+    expect(argmax([5, 5, 1])).toBe(0);
   });
   it("confidence is 1 for a single option and 0 for a uniform distribution", () => {
     expect(confidenceFromProbs([1], 1)).toBe(1);

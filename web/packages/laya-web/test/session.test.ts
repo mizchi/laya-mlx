@@ -32,9 +32,10 @@ interface FakeSession {
 
 function fakeOkSession(): FakeSession {
   return {
+    // dims[0] must match the probe batch's row count (2, see session.ts's `probeBatch`).
     run: vi.fn().mockResolvedValue({
-      logits: { dims: [1, 2], data: new Float32Array([0.1, 0.2]) },
-      act_logits: { dims: [1, 3], data: new Float32Array([0.1, 0.2, 0.3]) },
+      logits: { dims: [2, 3], data: new Float32Array([0.1, 0.2, 0.3, 0.1, 0.2, 0.3]) },
+      act_logits: { dims: [2, 3], data: new Float32Array([0.1, 0.2, 0.3, 0.1, 0.2, 0.3]) },
     }),
     release: vi.fn().mockResolvedValue(undefined),
   };
@@ -47,12 +48,14 @@ function fakeFailingSession(message: string): FakeSession {
   };
 }
 
-function mockCreateByProvider(sessions: Record<string, FakeSession>) {
+/** A provider entry is either a session to hand back from `create()`, or an error `create()` itself should reject with. */
+function mockCreateByProvider(sessions: Record<string, FakeSession | Error>) {
   vi.mocked(ort.InferenceSession.create).mockImplementation(async (_model, opts) => {
     const provider = (opts as { executionProviders: string[] }).executionProviders[0]!;
-    const session = sessions[provider];
-    if (!session) throw new Error(`unexpected provider: ${provider}`);
-    return session as unknown as InferenceSession;
+    const entry = sessions[provider];
+    if (!entry) throw new Error(`unexpected provider: ${provider}`);
+    if (entry instanceof Error) throw entry;
+    return entry as unknown as InferenceSession;
   });
 }
 
@@ -90,6 +93,18 @@ describe("OnnxRunner.create (probe fallback)", () => {
     expect(runner.provider).toBe("wasm");
     expect(webgpu.run).toHaveBeenCalledTimes(1);
     expect(webgpu.release).toHaveBeenCalledTimes(1);
+    expect(wasm.run).toHaveBeenCalledTimes(1);
+    expect(wasm.release).not.toHaveBeenCalled();
+  });
+
+  it("falls through when InferenceSession.create itself throws, without calling release", async () => {
+    const wasm = fakeOkSession();
+    mockCreateByProvider({ webgpu: new Error("adapter not found"), wasm });
+
+    const runner = await OnnxRunner.create(new ArrayBuffer(0), { providers: ["webgpu", "wasm"] });
+
+    expect(runner.provider).toBe("wasm");
+    // No session was ever created for webgpu, so there is nothing to release.
     expect(wasm.run).toHaveBeenCalledTimes(1);
     expect(wasm.release).not.toHaveBeenCalled();
   });

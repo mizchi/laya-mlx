@@ -1,5 +1,5 @@
-import { loadAgent, softmax, tempBucket } from "@laya-mlx/web";
-import type { PredictResult, Question, State } from "@laya-mlx/web";
+import { argmax, loadAgent, softmax, tempBucket } from "@laya-mlx/web";
+import type { AgentConfig, PredictResult, PreparedItem, Question, State } from "@laya-mlx/web";
 
 import { MODEL_URL, ORT_WASM_PATHS } from "./model-url.ts";
 
@@ -7,13 +7,26 @@ interface FixtureCase {
   name: string;
   state: State;
   questions: Record<string, Question>;
-  items: { markers: number[]; qtype: number }[];
+  items: PreparedItem[];
   logits: number[][];
   result: PredictResult;
 }
 interface Fixture {
-  config: { temperature: number[]; temperature_by_options: Record<string, number> };
+  config: AgentConfig;
   cases: FixtureCase[];
+}
+
+/** One question's browser-vs-Python comparison: does the top choice agree, and by how much do the two probability distributions differ at most. */
+interface QuestionScore {
+  argmaxAgrees: boolean;
+  maxAbsError: number;
+}
+
+function scoreQuestion(expected: number[], actual: number[]): QuestionScore {
+  return {
+    argmaxAgrees: argmax(expected) === argmax(actual),
+    maxAbsError: expected.reduce((worst, v, i) => Math.max(worst, Math.abs(v - actual[i]!)), 0),
+  };
 }
 
 export interface ParityReport {
@@ -67,15 +80,10 @@ async function main(): Promise<ParityReport> {
         answer.type === "noul"
           ? [1 - answer.noul, answer.noul]
           : Object.values(answer.probabilities);
+      const { argmaxAgrees, maxAbsError } = scoreQuestion(expected, actual);
       summary.questions += 1;
-      if (expected.indexOf(Math.max(...expected)) === actual.indexOf(Math.max(...actual)))
-        summary.argmax_agreements += 1;
-      expected.forEach((v, i) => {
-        summary.probability_max_abs_error = Math.max(
-          summary.probability_max_abs_error,
-          Math.abs(v - actual[i]!),
-        );
-      });
+      if (argmaxAgrees) summary.argmax_agreements += 1;
+      summary.probability_max_abs_error = Math.max(summary.probability_max_abs_error, maxAbsError);
     });
     if (JSON.stringify(result) === JSON.stringify(c.result)) summary.public_result_equal += 1;
   }

@@ -7,6 +7,20 @@ import type {
 } from "./types.ts";
 import { QTYPE_NAMES } from "./types.ts";
 
+/**
+ * Index of the first maximum in `values` (ties keep the earliest index, matching Python's
+ * `argmax`). Loop-based, not `Math.max(...values)` + `indexOf`: a spread call has no formal
+ * argument-count limit but can blow V8's call stack on a large array, and `>` (not `>=`) keeps
+ * the first occurrence on a tie.
+ */
+export function argmax(values: ArrayLike<number>): number {
+  let best = 0;
+  for (let i = 1; i < values.length; i++) {
+    if (values[i]! > values[best]!) best = i;
+  }
+  return best;
+}
+
 export function softmax(values: ArrayLike<number>): number[] {
   const z = Array.from(values);
   let max = -Infinity;
@@ -97,11 +111,8 @@ export function formatAnswers(input: FormatInput): PredictResult {
     };
     if (q.t === "choice") {
       const labels = Object.keys(q.crit);
-      // Loop, not `Math.max(...p)` + `indexOf`: a spread call has no formal argument-count
-      // limit but can blow V8's call stack on a large `p`, and `>` (not `>=`) keeps the first
-      // occurrence on a tie, matching Python's `argmax`.
-      let best = 0;
-      for (let i = 1; i < p.length; i++) if (p[i]! > p[best]!) best = i;
+      // See `argmax`'s doc comment for why not `Math.max(...p)` + `indexOf`.
+      const best = argmax(p);
       answers[qid] = {
         type: "choice",
         ...base,
