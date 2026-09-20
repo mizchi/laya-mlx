@@ -13,6 +13,7 @@ import numpy as np
 
 from laya_mlx import Agent
 from laya_mlx.agent import collate_items
+from laya_mlx.common import render_options
 
 from .common import environment, parity_cases
 
@@ -73,7 +74,7 @@ def main():
     tok = agent.tok
     cases = []
     for name, state, questions in parity_cases():
-        items, _ = agent.prepare(state, questions)
+        items, internal = agent.prepare(state, questions)
         # One batch per case: predict() below chunks at batch_size, so its rows may be
         # padded differently. Compare forward outputs with a tolerance.
         batch = collate_items(items, tok.pad_token_id)
@@ -84,6 +85,12 @@ def main():
                 "state": state,
                 "questions": questions,
                 "items": items,
+                # `internal` is `Agent._to_internal`'s output per question (the {"t", "ins",
+                # "crit"} dict); `options` is `render_options` applied to each, i.e. the exact
+                # option texts the prompt embeds. Both let the TS port assert byte-for-byte
+                # parity with the Python validation/rendering, not just marker counts.
+                "internal": internal,
+                "options": [render_options(q) for q in internal],
                 "batch": {k: v.astype(int).tolist() for k, v in batch.items()},
                 "logits": logits.tolist(),
                 "act_logits": act.tolist(),

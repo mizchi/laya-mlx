@@ -8,24 +8,34 @@ export type State = string | Json[] | { [key: string]: Json };
 
 export interface ChoiceQuestion {
   type: "choice";
-  instructions: string | Json;
+  instructions: Json;
+  /**
+   * `string[]` (list form) preserves option order unambiguously. The dict form,
+   * `Record<string, Criterion>`, does too for arbitrary string keys, but JavaScript always
+   * enumerates "array index" keys ("0", "1", "23", ...) first and in ascending numeric order,
+   * regardless of insertion order — and by the time this object exists, `JSON.parse` has
+   * already discarded the source order. A dict that mixes such keys with ordinary ones can no
+   * longer round-trip Python's (always insertion-ordered) dict order, so `toInternal` rejects
+   * it and asks for the list form instead; an all-numeric-key dict is fine, since ascending
+   * order is the only order a JSON producer could have meant.
+   */
   criteria: string[] | Record<string, Criterion>;
 }
 export interface ScoreQuestion {
   type: "score";
-  instructions: string | Json;
+  instructions: Json;
   criteria: Criterion[];
 }
 export interface NoulQuestion {
   type: "noul";
-  instructions: string | Json;
+  instructions: Json;
   criteria?: { false?: Criterion; true?: Criterion } | null;
 }
 export type Question = ChoiceQuestion | ScoreQuestion | NoulQuestion;
 
 /** Mirrors Python `Agent._to_internal` output: {"t", "ins", "crit"}. */
 export type InternalQuestion =
-  | { t: "choice"; ins: string; crit: Record<string, Criterion | null> }
+  | { t: "choice"; ins: string; crit: Record<string, Criterion> }
   | { t: "score"; ins: string; crit: Criterion[] }
   | { t: "noul"; ins: string; crit: { false?: Criterion; true?: Criterion } | null };
 

@@ -1,13 +1,23 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import type { AgentConfig, PredictResult, Question, State } from "../src/types.ts";
+import type {
+  AgentConfig,
+  InternalQuestion,
+  PredictResult,
+  Question,
+  State,
+} from "../src/types.ts";
 
 export interface FixtureCase {
   name: string;
   state: State;
   questions: Record<string, Question>;
   items: { ids: number[]; markers: number[]; qtype: number }[];
+  /** Python `Agent._to_internal(q)` per question, in `questions` iteration order. */
+  internal: InternalQuestion[];
+  /** Python `render_options(internal[i])` per question. */
+  options: string[][];
   batch: {
     input_ids: number[][];
     attention_mask: number[][];

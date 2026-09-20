@@ -24,21 +24,34 @@ describe("toInternal", () => {
     [{ type: "noul", instructions: "x", criteria: ["a"] }, /dictionary/],
     [{ type: "other", instructions: "x" }, /Unknown question type/],
     [{ type: "noul" }, /missing instructions/],
+    // "toString" is a real own-prototype-chain property of plain objects; `in` would
+    // wrongly accept it (or any other Object.prototype member) as a question type.
+    [{ type: "toString", instructions: "x" }, /Unknown question type/],
   ])("rejects %j", (question, message) => {
-    expect(() => toInternal(question as never)).toThrow(message);
+    expect(() => toInternal(question)).toThrow(message);
   });
   it("validates criteria before serializing instructions", () => {
-    expect(() => toInternal({ type: "choice", instructions: NaN, criteria: [] } as never)).toThrow(
+    expect(() => toInternal({ type: "choice", instructions: NaN, criteria: [] })).toThrow(
       /nonempty dictionary or list/,
     );
   });
   it("reprs the unknown type like Python (quoted string, or None when missing)", () => {
-    expect(() => toInternal({ type: "other", instructions: "x" } as never)).toThrow(
+    expect(() => toInternal({ type: "other", instructions: "x" })).toThrow(
       "Unknown question type 'other'; expected choice, score, or noul",
     );
-    expect(() => toInternal({ instructions: "x" } as never)).toThrow(
+    expect(() => toInternal({ instructions: "x" })).toThrow(
       "Unknown question type None; expected choice, score, or noul",
     );
+  });
+  it("accepts a choice criteria dict whose keys are all integer-like", () => {
+    expect(
+      toInternal({ type: "choice", instructions: "x", criteria: { "0": "a", "1": "b" } }),
+    ).toEqual({ t: "choice", ins: "x", crit: { "0": "a", "1": "b" } });
+  });
+  it("rejects a choice criteria dict mixing integer-like and other keys", () => {
+    expect(() =>
+      toInternal({ type: "choice", instructions: "x", criteria: { "0": "a", other: "b" } }),
+    ).toThrow(/numeric labels must use the list form/);
   });
 });
 
@@ -63,13 +76,13 @@ describe("renderOptions", () => {
       ["false: no, the statement does not hold", 'true: {"reason": "money back"}'],
     );
   });
-  it("produces one option per marker for every fixture question", () => {
+  it("produces the same internal question and option texts as Python for every fixture question", () => {
     for (const c of fixture.cases) {
       const questions = Object.values(c.questions);
       questions.forEach((q, i) => {
-        expect(renderOptions(toInternal(q)).length, `${c.name}#${i}`).toBe(
-          c.items[i]!.markers.length,
-        );
+        const internal = toInternal(q);
+        expect(internal, `${c.name}#${i}`).toEqual(c.internal[i]);
+        expect(renderOptions(internal), `${c.name}#${i}`).toEqual(c.options[i]);
       });
     }
   });
