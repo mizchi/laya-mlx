@@ -58,11 +58,11 @@ describe("SnakeGame rules against Python", () => {
     const reasons = new Set(["legal", "wall", "reverse", "body"]);
     for (const d of ["UP", "DOWN", "LEFT", "RIGHT"] as const)
       expect(reasons.has(game.legalReason(d))).toBe(true);
+    // The direction pointing at the neck is always illegal ("reverse"), so this never skips.
     const unsafe = game.moves().find((m) => !m.legal);
-    if (unsafe) {
-      expect(game.step(unsafe.direction)).toBe(false);
-      expect(game.alive).toBe(false);
-      expect(game.deathReason).toBe(unsafe.reason);
-    }
+    expect(unsafe).toBeDefined();
+    expect(game.step(unsafe!.direction)).toBe(false);
+    expect(game.alive).toBe(false);
+    expect(game.deathReason).toBe(unsafe!.reason);
   });
 });

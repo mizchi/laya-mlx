@@ -46,6 +46,7 @@ export interface Snapshot {
 }
 
 function cellKey(cell: Cell): number {
+  // Collision-free for any board narrower than 100000 cells; boards here are at most a few hundred.
   return cell[0] * 100000 + cell[1];
 }
 
