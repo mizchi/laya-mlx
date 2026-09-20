@@ -8,7 +8,7 @@ short, described shortlist to pick from.
 - Hugging Face Space: https://huggingface.co/spaces/mizchi/laya-web-demo (direct page:
   https://mizchi-laya-web-demo.static.hf.space/chess.html)
 - The repository's GitHub Pages site (for the `mizchi/laya-mlx` fork:
-  https://mizchi.github.io/laya-mlx/), at `chess.html`
+  https://mizchi.github.io/laya-mlx/, once Pages is enabled in the repository settings), at `chess.html`
 
 ## What Laya does — and does not — do
 
@@ -55,7 +55,7 @@ played, even if it hangs a piece or walks into mate.
 
 This beats a beginner and loses to any real chess engine. The planner's 2-ply material search
 with recapture quiescence catches obvious blunders and one-move tactics but has no positional
-understanding, no deep tactics, and no opening or endgame knowledge. The English descriptions
+understanding, no deep tactics, and no opening or endgame knowledge. In the opening most candidates tie on material, so the planner's "Best" mark is then just the first move in generation order and carries no positional signal. The English descriptions
 handed to Laya — not Laya's own board reasoning — carry most of the chess knowledge in this demo;
 Laya's job is choosing among six pre-scored, pre-described options, not evaluating the position
 itself.

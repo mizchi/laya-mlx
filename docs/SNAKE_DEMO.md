@@ -118,7 +118,7 @@ For a social clip, the default 12 FPS target gives viewers time to see the selec
 The same game runs in the browser, no install required:
 
 - Hugging Face Space: https://huggingface.co/spaces/mizchi/laya-web-demo
-- The repository's GitHub Pages site (for the `mizchi/laya-mlx` fork: https://mizchi.github.io/laya-mlx/),
+- The repository's GitHub Pages site (for the `mizchi/laya-mlx` fork: https://mizchi.github.io/laya-mlx/, once Pages is enabled in the repository settings),
   at `snake.html`
 
 Rules, the planner (legal directions, safe-cycle progress, connectivity) and the execution safety shield are
