@@ -1,0 +1,229 @@
+:root {
+  --bg: #0b1216;
+  --fg: #dcfff0;
+  --muted: #7b8a93;
+  --dim: #13272e;
+  --green: #7ef3b6;
+  --amber: #f5c26b;
+  --cyan: #7fd8f2;
+  --red: #ff6b6b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    14px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  margin: 0;
+  padding: 0 16px;
+}
+
+[hidden] {
+  display: none;
+}
+
+.muted {
+  color: var(--muted);
+}
+.green {
+  color: var(--green);
+}
+.amber {
+  color: var(--amber);
+}
+.cyan {
+  color: var(--cyan);
+}
+.red {
+  color: var(--red);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--dim);
+  padding: 10px 0;
+}
+footer.bar {
+  border-bottom: none;
+  border-top: 1px solid var(--dim);
+}
+
+#state.green {
+  color: var(--green);
+}
+#state.red {
+  color: var(--red);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
+  padding: 16px 0;
+}
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.board h1 {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  font-size: 20px;
+  letter-spacing: 0.1em;
+  margin: 16px 0 12px;
+}
+
+.board canvas {
+  display: block;
+  max-width: 100%;
+  image-rendering: pixelated;
+  border: 1px solid var(--dim);
+}
+
+.scores {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 12px 0;
+}
+.scores > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.scores strong {
+  font-size: 28px;
+  font-weight: normal;
+}
+.scores > div:nth-child(1) strong {
+  color: var(--green);
+}
+.scores > div:nth-child(2) strong {
+  color: var(--fg);
+}
+.scores > div:nth-child(3) strong {
+  color: var(--muted);
+}
+
+.fill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.fill .track {
+  flex: 1;
+}
+
+.track {
+  display: inline-block;
+  width: 100%;
+  height: 10px;
+  background: var(--dim);
+}
+#probs .track {
+  width: 18ch;
+}
+.track .bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--muted);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.controls button {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--dim);
+  padding: 6px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+.controls button:hover {
+  border-color: var(--green);
+}
+.controls button[aria-pressed="true"] {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.panel h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 18px;
+  margin: 16px 0 4px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+#probs {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+#probs li {
+  display: grid;
+  grid-template-columns: 6ch 1fr 5ch;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+#probs li .dir,
+#probs li .val {
+  color: var(--muted);
+}
+#probs li.selected .dir,
+#probs li.selected .val {
+  color: var(--green);
+}
+#probs li.selected .bar {
+  background: var(--green);
+}
+
+.metric {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+.metric .track {
+  flex: 1;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 16px;
+  margin: 16px 0;
+}
+.stats dt {
+  color: var(--muted);
+}
+.stats dd {
+  margin: 0;
+  text-align: right;
+}

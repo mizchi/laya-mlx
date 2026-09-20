@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Laya Snake</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body class="snake">
+    <header class="bar">
+      <span class="muted">LAYA / LOCAL INTELLIGENCE</span>
+      <span id="state" class="state">LOADING</span>
+    </header>
+    <main class="layout">
+      <section class="board">
+        <h1>S N A K E <span id="round" class="muted">ROUND 01</span></h1>
+        <canvas id="board" width="480" height="320" aria-label="Snake board"></canvas>
+        <div class="scores">
+          <div><span class="muted">SCORE</span><strong id="score">0</strong></div>
+          <div><span class="muted">LENGTH</span><strong id="length">0</strong></div>
+          <div><span class="muted">BEST</span><strong id="best">0</strong></div>
+        </div>
+        <div class="fill">
+          <div class="track"><div id="fill-bar" class="bar green"></div></div>
+          <span id="fill-pct" class="muted">0.0%</span>
+        </div>
+        <div class="controls">
+          <button id="pause">Pause (Space)</button>
+          <button id="slower">Slower (↓)</button>
+          <button id="faster">Faster (↑)</button>
+          <button id="max-speed">Max speed</button>
+          <button id="reset">Reset (R)</button>
+        </div>
+      </section>
+      <aside class="panel">
+        <h2>Laya <span id="engine-title" class="muted">WebGPU</span></h2>
+        <p id="loading" class="muted">loading model…</p>
+        <div class="row"><span>NEXT MOVE</span><span class="muted">MODEL PROBABILITIES</span></div>
+        <ul id="probs">
+          <li data-dir="UP">
+            <span class="dir">UP</span><span class="track"><span class="bar"></span></span
+            ><span class="val">0.00</span>
+          </li>
+          <li data-dir="DOWN">
+            <span class="dir">DOWN</span><span class="track"><span class="bar"></span></span
+            ><span class="val">0.00</span>
+          </li>
+          <li data-dir="LEFT">
+            <span class="dir">LEFT</span><span class="track"><span class="bar"></span></span
+            ><span class="val">0.00</span>
+          </li>
+          <li data-dir="RIGHT">
+            <span class="dir">RIGHT</span><span class="track"><span class="bar"></span></span
+            ><span class="val">0.00</span>
+          </li>
+        </ul>
+        <div class="row">
+          <span class="muted">EXECUTING</span><strong id="executing">—</strong
+          ><span id="shield" class="amber" hidden>SHIELD</span>
+        </div>
+        <div class="metric">
+          <span class="muted">DEAD-END RISK</span
+          ><span class="track"><span id="risk-bar" class="bar amber"></span></span
+          ><span id="risk-val">0.00</span>
+        </div>
+        <div class="metric">
+          <span class="muted">FOOD REACHABLE</span
+          ><span class="track"><span id="food-bar" class="bar cyan"></span></span
+          ><span id="food-val">0.00</span>
+        </div>
+        <dl class="stats">
+          <dt>INFERENCE</dt>
+          <dd id="inference">0.0 ms</dd>
+          <dt>DECISIONS</dt>
+          <dd id="rate">0.0 /s</dd>
+          <dt>OUTPUT TOKENS</dt>
+          <dd id="output-tokens">0</dd>
+          <dt>NETWORK</dt>
+          <dd class="green">OFFLINE AFTER LOAD</dd>
+          <dt>ENGINE</dt>
+          <dd id="engine">—</dd>
+        </dl>
+        <p class="muted">Laya + cycle safety</p>
+        <p class="amber">Shield interventions <span id="interventions">0000</span></p>
+      </aside>
+    </main>
+    <footer class="bar">
+      <span class="muted">SPACE pause · ↑/↓ speed · R reset</span
+      ><span id="clock" class="muted">00:00</span>
+    </footer>
+    <script type="module" src="/src/snake/main.ts"></script>
+  </body>
+</html>
