@@ -111,7 +111,11 @@ async function start(): Promise<void> {
     const san = game.applyMove({ from, to });
     if (!san) return;
     draw();
-    if (!game.status.over) await runAiMove();
+    if (game.status.over) {
+      board.setInteractive(false);
+      return;
+    }
+    await runAiMove();
   }
 
   function newGame(): void {

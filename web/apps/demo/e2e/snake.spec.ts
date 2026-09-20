@@ -1,29 +1,4 @@
-import { expect, type Page, test as base } from "@playwright/test";
-
-const text = (page: Page, id: string) => page.locator(`#${id}`).textContent();
-
-/**
- * Collects console errors and uncaught page errors for the duration of a test. Every test in
- * this file asserts this is empty except the bad-model-URL test, which expects one (it hits the
- * `start().catch` handler's `console.error(error)` in main.ts).
- */
-// onnxruntime-web itself (not this app) logs this informational EP-assignment note through
-// console.error when a graph mixes execution providers; it is expected on every real-model run
-// and is not a bug, so it is filtered out rather than muting console-error checks altogether.
-const BENIGN_CONSOLE_ERROR = /VerifyEachNodeIsAssignedToAnEp/;
-
-const test = base.extend<{ pageErrors: string[] }>({
-  pageErrors: async ({ page }, use) => {
-    const errors: string[] = [];
-    page.on("console", (message) => {
-      if (message.type() === "error" && !BENIGN_CONSOLE_ERROR.test(message.text())) {
-        errors.push(message.text());
-      }
-    });
-    page.on("pageerror", (error) => errors.push(String(error)));
-    await use(errors);
-  },
-});
+import { expect, test, text } from "./fixtures.ts";
 
 test.describe("stub agent", () => {
   test("stub agent plays Snake: board advances, pause, speed and reset work", async ({
