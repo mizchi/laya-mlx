@@ -50,7 +50,7 @@ Four modules with one clear purpose each. Everything except `session.ts` is pure
 
 Tokenizer: `@huggingface/tokenizers` loading `tokenizer.json`; if it cannot reproduce Python ids for the fixtures, use the tokenizer from Transformers.js instead. The decision is made by the first test below.
 
-Bundle URL convention: a directory URL; the runtime appends `model.onnx`, `rl_agent_config.json`, `tokenizer/tokenizer.json`, `tokenizer/tokenizer_config.json`, `onnx_config.json`. Works for `https://huggingface.co/<owner>/<repo>/resolve/main/` and for a local `models/` directory served by Vite.
+Bundle URL convention: a directory URL; the runtime appends `model.onnx`, `rl_agent_config.json`, `tokenizer/tokenizer.json`, `tokenizer/tokenizer_config.json`, `onnx_config.json`. Works for `https://huggingface.co/mizchi/laya-multilingual-onnx/resolve/main/` and for a local `models/` directory served by Vite.
 
 Cache: `caches.open("laya-models")` keyed by the model URL. Any failure (quota, private mode) falls back to a plain fetch without surfacing an error. The loading UI reports bytes received from `Content-Length` and the response stream.
 
@@ -107,7 +107,7 @@ Tests: `candidates.test.ts` (finds mate in one, flags a hanging piece, descripti
 
 ## 4. Distribution and deployment
 
-- Upload the float16 bundle with `hf upload <owner>/laya-multilingual-onnx <bundle dir>` including a model card that records the source checkpoint, revision, export command, opset and the parity report. Owner: mizchi's Hugging Face account; confirm the exact username before the first upload.
+- Upload the float16 bundle with `hf upload mizchi/laya-multilingual-onnx <bundle dir>` including a model card that records the source checkpoint, revision, export command, opset and the parity report. Owner: `mizchi` (login verified on 2026-09-20).
 - Demo model URL is a build-time setting (`VITE_LAYA_MODEL_URL`), defaulting to the Hugging Face URL; local development points it at `models/`.
 - `pages.yml`: on push to `main`, `pnpm install`, `pnpm -C web build`, deploy `web/apps/demo/dist` to GitHub Pages. onnxruntime-web assets are copied into `dist` so the site does not depend on a CDN.
 - CI (`ci.yml`): add a job for `pnpm -C web lint`, `typecheck`, `test` (Node tests and stub-agent Playwright).
