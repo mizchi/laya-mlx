@@ -5,11 +5,13 @@ interface AddedToken {
   content: string;
   lstrip: boolean;
   rstrip: boolean;
+  normalized: boolean;
+  single_word: boolean;
 }
 
 interface TokenizerJson {
   added_tokens: AddedToken[];
-  normalizer: { type: string } | null;
+  normalizer: { type: string; pattern?: { String?: string }; content?: string } | null;
   pre_tokenizer: {
     type: string;
     replacement?: string;
@@ -37,16 +39,35 @@ interface AddedTokenInfo {
 /**
  * Encoder matching the Rust `tokenizers` crate for Metaspace BPE tokenizers.
  *
- * Added tokens are matched on the raw text in two phases, mirroring Rust's
+ * `@huggingface/tokenizers@0.2.0` (the underlying `inner` library) diverges from
+ * the Rust crate in two ways this class works around; re-check both after any
+ * upgrade of that dependency:
+ * - Its `Tokenizer.encode_text` matches added tokens against already-normalized
+ *   text and, for an lstrip token, `trimEnd()`s the *previous* split section in
+ *   place. If that previous section is itself a whitespace-only added token
+ *   (e.g. `"\n"`), `trimEnd()` empties it and it is then dropped as a
+ *   zero-length section — silently deleting an added token instead of merely
+ *   trimming whitespace around it.
+ * - Its lstrip/rstrip whitespace test is JS's built-in `trimEnd`/`trimStart`
+ *   (effectively `\s`), not Unicode `White_Space`.
+ *
+ * This class never calls the library's own added-token matching. Instead,
+ * added tokens are matched on the raw text in two phases, mirroring Rust's
  * `tokenizers` crate: phase 1 finds every added-token CONTENT match (leftmost,
  * longest-content-first, non-overlapping); phase 2 then extends each match's
- * lstrip/rstrip over adjacent whitespace, but never past a neighboring match's
- * own (possibly already-extended) boundary. This is what keeps e.g. the `\n`
- * added token from being swallowed by `<mask>`'s lstrip in `"\n<mask>"`.
- * Each remaining gap segment gets the checkpoint's normalizer (" " -> "▁") and
- * the Metaspace `always` prepend, then is split so every piece starts with "▁"
- * (Rust's MergedWithNext). Pieces contain neither added tokens nor consecutive
- * "▁", which is where tokenizers.js diverges from Rust.
+ * lstrip/rstrip over adjacent (Unicode `White_Space`) whitespace, but never
+ * past a neighboring match's own boundary — rstrip is bounded by the *next*
+ * match's raw (unextended) start, which is narrower than Rust (which leaves
+ * rstrip unbounded) but id-equivalent here: a gap segment is only emitted for
+ * text between matches, and rstrip's job is exactly to make sure whitespace
+ * it should own isn't emitted as such a gap, which bounding at the next
+ * match's start already guarantees. This is what keeps e.g. the `\n` added
+ * token from being swallowed by `<mask>`'s lstrip in `"\n<mask>"`.
+ * Each remaining gap segment has the checkpoint's Replace(" " -> replacement)
+ * normalizer and the Metaspace `always` prepend applied by this class, then is
+ * split so every piece starts with "▁" (Rust's MergedWithNext). Pieces contain
+ * neither added tokens nor consecutive "▁", which is where tokenizers.js
+ * diverges from Rust.
  */
 export class LayaTokenizer {
   readonly clsToken: string;
@@ -71,6 +92,22 @@ export class LayaTokenizer {
       );
     }
     this.replacement = pre.replacement ?? "▁";
+    // Rust's Metaspace replacement is a `char`, i.e. exactly one code point.
+    if ([...this.replacement].length !== 1) {
+      throw new Error("Metaspace replacement must be a single character");
+    }
+    const norm = tokenizerJson.normalizer;
+    if (
+      norm !== null &&
+      (norm.type !== "Replace" || norm.pattern?.String !== " " || norm.content !== this.replacement)
+    ) {
+      throw new Error('LayaTokenizer supports a null or Replace(" " -> replacement) normalizer');
+    }
+    if (tokenizerJson.added_tokens.some((a) => a.normalized || a.single_word)) {
+      throw new Error(
+        "LayaTokenizer requires added tokens with normalized=false and single_word=false",
+      );
+    }
     // The library's constructor takes untyped `Object`s; its own TokenizerJson/
     // TokenizerConfig types describe a similar but not identical shape (e.g. no
     // `split` on Metaspace), so we pass our already-parsed JSON straight through.
@@ -91,7 +128,10 @@ export class LayaTokenizer {
     const special = (name: keyof TokenizerConfig): [string, number] => {
       const raw = tokenizerConfig[name];
       const content = typeof raw === "string" ? raw : raw?.content;
-      const id = content === undefined ? undefined : this.addedTokenInfo.get(content)?.id;
+      const id =
+        content === undefined
+          ? undefined
+          : (this.addedTokenInfo.get(content)?.id ?? this.inner.token_to_id(content));
       if (content === undefined || id === undefined)
         throw new Error(`Tokenizer is missing a valid ${name}`);
       return [content, id];
