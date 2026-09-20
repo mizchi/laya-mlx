@@ -134,15 +134,18 @@ export function describeMove(
 
   if (isCapture) {
     parts.push(`Captures the ${pieceName(move.captured ?? "")}.`);
-  } else if (Math.round(materialDelta) <= -1) {
+  } else if (Math.round(materialDelta) <= -1 && reply && reply.isCapture()) {
     hangs = true;
-    const attacker =
-      reply && reply.to === move.to && reply.isCapture() ? pieceName(reply.piece) : null;
-    parts.push(
-      attacker
-        ? `Hangs the ${pieceName(move.piece)} to a ${attacker}.`
-        : `Hangs the ${pieceName(move.piece)}.`,
-    );
+    const attacker = pieceName(reply.piece);
+    if (reply.to === move.to && move.piece !== "k") {
+      // The reply recaptures on the square we just moved to: our own piece hangs.
+      // (The king itself can never legally be the piece captured, since a reply
+      // that "recaptures" the king would mean the position was already illegal.)
+      parts.push(`Hangs the ${pieceName(move.piece)} to a ${attacker}.`);
+    } else {
+      // The reply captures elsewhere: an unrelated piece was left en prise.
+      parts.push(`Drops the ${pieceName(reply.captured ?? "")} to a ${attacker}.`);
+    }
   }
 
   if (move.isKingsideCastle()) parts.push("Castles kingside.");

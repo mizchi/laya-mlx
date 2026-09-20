@@ -31,6 +31,18 @@ describe("shortlist", () => {
     expect(nd5!.description).toBe("Hangs the knight to a pawn. Loses material.");
     expect(nd5!.best).toBe(false);
   });
+  it("describes an unrelated piece left en prise as dropped, not the king", () => {
+    // White king on e1, knight on c3, black pawn on d4 attacks the knight.
+    // Every king move leaves the knight hanging to the pawn; none of them
+    // should ever be described as the king hanging.
+    const c = shortlist(new Chess("4k3/8/8/8/3p4/2N5/8/4K3 w - - 0 1"), 20);
+    const ke2 = c.find((x) => x.san === "Ke2");
+    expect(ke2).toBeDefined();
+    expect(ke2!.description).toBe("Drops the knight to a pawn. Loses material.");
+    for (const x of c) {
+      expect(x.description).not.toContain("Hangs the king");
+    }
+  });
   it("marks moves that allow mate in one", () => {
     const c = shortlist(new Chess("6k1/5ppp/8/8/8/8/5PPP/R5K1 b - - 0 1"), 20);
     const losing = c.filter((x) => x.allowsMate);
