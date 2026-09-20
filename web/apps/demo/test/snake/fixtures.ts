@@ -28,7 +28,5 @@ export interface SnakeFixture {
   }[];
 }
 
-const path = fileURLToPath(
-  new URL("../../../../fixtures/snake-multilingual.json", import.meta.url),
-);
+const path = fileURLToPath(new URL("../../../../fixtures/snake-rules.json", import.meta.url));
 export const snakeFixture: SnakeFixture = JSON.parse(readFileSync(path, "utf8"));

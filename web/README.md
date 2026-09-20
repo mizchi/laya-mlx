@@ -13,7 +13,7 @@ pnpm install
 pnpm typecheck && pnpm test                      # Node tests; fixture based, no model needed
 LAYA_TOKENIZER_DIR=<bundle>/tokenizer pnpm test  # also the tokenizer / prompt / agent parity tests
 pnpm --filter laya-demo dev                      # http://localhost:5173
-pnpm test:browser                                # builds the site, runs the index smoke test
+pnpm test:browser                                # builds the site, runs the index smoke test and the Snake stub tests
 LAYA_MODEL_URL=https://huggingface.co/mizchi/laya-multilingual-onnx/resolve/main/ pnpm test:browser
 ```
 
@@ -58,9 +58,11 @@ localhost). onnxruntime-web is pinned to 1.30.0 because its WebGPU backend needs
 Two GitHub Actions workflows publish `apps/demo/dist`, independently:
 
 - [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) builds with
-  `VITE_BASE=/<repo-name>/` and deploys to GitHub Pages on every push to `main`. GitHub Pages must be set to
-  **Source: GitHub Actions** (repository Settings → Pages) before this workflow can deploy; it needs no
-  secrets.
+  `VITE_BASE=/<repo-name>/` and deploys to GitHub Pages on every push to `main`. The `build` job is gated on
+  `github.event.repository.has_pages || vars.DEPLOY_PAGES == 'true'`: enable **Source: GitHub Actions**
+  (repository Settings → Pages) and `has_pages` turns on automatically, or set the repository **variable**
+  `DEPLOY_PAGES=true` as an explicit override (needed for `workflow_dispatch`, where
+  `github.event.repository` can be absent). It needs no secrets.
 - [`.github/workflows/space.yml`](../.github/workflows/space.yml) builds with the default base (`/`), copies
   [`space/README.md`](space/README.md) in as `dist/README.md` (the Space's model card / front matter), and
   `hf upload`s the result to a Hugging Face static Space on push to `main`. It is gated on the repository

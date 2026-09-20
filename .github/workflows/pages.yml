@@ -12,10 +12,14 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
+    # `github.event.repository.has_pages` is true once Pages is enabled on the repository; the
+    # `DEPLOY_PAGES` repository variable is an explicit override for `workflow_dispatch`, where
+    # `github.event.repository` can be absent.
+    if: ${{ github.event.repository.has_pages || vars.DEPLOY_PAGES == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:

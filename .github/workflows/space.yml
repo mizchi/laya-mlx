@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -29,7 +32,10 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install "huggingface_hub>=1,<2"
-      - run: hf upload "$HF_SPACE" apps/demo/dist . --repo-type space --commit-message "Deploy ${GITHUB_SHA::7}"
+      - run: |
+          hf upload "$HF_SPACE" apps/demo/dist . --repo-type space \
+            --delete "assets/*" --delete "ort/*" \
+            --commit-message "Deploy ${GITHUB_SHA::7}"
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE: ${{ vars.HF_SPACE }}

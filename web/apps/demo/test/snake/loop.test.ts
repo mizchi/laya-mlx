@@ -37,6 +37,34 @@ describe("GameLoop", () => {
     expect(loop.stats.round).toBe(2);
     expect(loop.game.seed).toBe(settings.seed + 1);
   });
+  it("increments generation on reset()", () => {
+    const loop = new GameLoop(new StubAgent(), settings);
+    expect(loop.generation).toBe(0);
+    loop.reset();
+    expect(loop.generation).toBe(1);
+    loop.reset();
+    expect(loop.generation).toBe(2);
+  });
+  it("discards an in-flight decision when reset() runs during inference", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const agent: SnakeAgent = {
+      predict: async (state, questions) => {
+        await gate;
+        return new StubAgent().predict(state, questions);
+      },
+    };
+    const loop = new GameLoop(agent, settings);
+    const p = loop.tick();
+    loop.reset();
+    release();
+    await p;
+    expect(loop.game.ticks).toBe(0);
+    expect(loop.stats.decisions).toBe(0);
+    expect(loop.lastDecision).toBeNull();
+  });
   it("tick() is a no-op on a finished game; reset() starts the next round", async () => {
     const loop = new GameLoop(new StubAgent(), settings);
     loop.game.alive = false;
@@ -51,6 +79,14 @@ describe("GameLoop", () => {
     loop.reset();
     expect(loop.stats.round).toBe(2);
     expect(loop.finished).toBe(false);
+  });
+  it("clamps the constructor fps into [1, 240] and falls back to 12 when not finite", () => {
+    expect(new GameLoop(new StubAgent(), { ...settings, fps: 500 }).fps).toBe(240);
+    expect(new GameLoop(new StubAgent(), { ...settings, fps: -3 }).fps).toBe(1);
+    expect(new GameLoop(new StubAgent(), { ...settings, fps: Number.NaN }).fps).toBe(12);
+    expect(new GameLoop(new StubAgent(), { ...settings, fps: Number.POSITIVE_INFINITY }).fps).toBe(
+      12,
+    );
   });
   it("adjusts pacing within [1, 240] decisions per second", () => {
     const loop = new GameLoop(new StubAgent(), { ...settings, fps: 239 });

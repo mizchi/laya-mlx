@@ -54,9 +54,7 @@ def play(width, height, seed, initial_length, steps):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--output", type=Path, default=ROOT / "web/fixtures/snake-multilingual.json"
-    )
+    parser.add_argument("--output", type=Path, default=ROOT / "web/fixtures/snake-rules.json")
     args = parser.parse_args()
     games = [
         {"width": 24, "height": 16, "seed": 7, "initial_length": 6, "steps": 120},

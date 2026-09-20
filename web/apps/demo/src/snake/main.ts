@@ -112,8 +112,11 @@ async function start(): Promise<void> {
     await loop.tick();
     draw();
     if (loop.finished) {
+      const generationAtRoundEnd = loop.generation;
       await sleep(ROUND_END_PAUSE_MS);
-      loop.reset();
+      // Only auto-advance if nothing already did (e.g. the user pressing R during the hold);
+      // otherwise this would reset a second time on top of theirs.
+      if (loop.generation === generationAtRoundEnd) loop.reset();
       draw();
       continue;
     }

@@ -118,7 +118,8 @@ For a social clip, the default 12 FPS target gives viewers time to see the selec
 The same game runs in the browser, no install required:
 
 - Hugging Face Space: https://huggingface.co/spaces/mizchi/laya-web-demo
-- GitHub Pages: https://mizchi.github.io/laya-mlx/snake.html (once Pages is enabled on the repository)
+- The repository's GitHub Pages site (for the `mizchi/laya-mlx` fork: https://mizchi.github.io/laya-mlx/),
+  at `snake.html`
 
 Rules, the planner (legal directions, safe-cycle progress, connectivity) and the execution safety shield are
 plain TypeScript, ported directly from this terminal demo. Laya itself runs client-side with
@@ -148,6 +149,8 @@ Desktop browsers with WebGPU (Chrome, Edge) are recommended; wasm-only browsers 
 slower. The page needs a secure context (https, or localhost during development).
 
 The browser port uses its own RNG, so board/food sequences differ from the terminal demo even with the same
-seed — only the rules, prompts and model are shared, not the pseudo-random stream. Behavioural parity (same
-prompts, same calibrated answers) between the Python and TypeScript implementations is verified by
-`web/fixtures/snake-multilingual.json`, not by matching board layouts.
+seed — only the rules, prompts and model are shared, not the pseudo-random stream. `web/fixtures/snake-rules.json`
+verifies that the Snake rules and prompt strings match between the Python and TypeScript implementations; it
+is model-free and does not cover calibrated answers. Behavioural parity of calibrated model answers (same
+prompts, same probabilities) between the Python and TypeScript implementations is covered separately by
+`web/fixtures/parity-multilingual.json`, not by matching board layouts.

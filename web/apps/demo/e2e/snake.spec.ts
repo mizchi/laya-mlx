@@ -99,7 +99,7 @@ test.describe("stub agent", () => {
 test.describe("real model", () => {
   const modelUrl = process.env.LAYA_MODEL_URL;
 
-  test("real model plays 40 decisions without dying", async ({ page, pageErrors }) => {
+  test("real model plays without dying for 8 seconds", async ({ page, pageErrors }) => {
     test.skip(!modelUrl, "set LAYA_MODEL_URL=<bundle directory URL> to run the real-model check");
     test.setTimeout(10 * 60 * 1000);
 

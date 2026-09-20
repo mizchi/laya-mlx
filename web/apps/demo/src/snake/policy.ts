@@ -3,7 +3,7 @@
  * deterministic cycle safety shield. Faithful TypeScript port of
  * ../../../laya_mlx/snake/policy.py's `build_prompt` and `LayaPolicy.decide`.
  */
-import type { Answer, PredictResult, Question, State } from "@laya-mlx/web";
+import type { PredictResult, Question, State } from "@laya-mlx/web";
 
 import { DIRECTIONS, type Direction, type MoveInfo, type SnakeGame } from "./game.ts";
 

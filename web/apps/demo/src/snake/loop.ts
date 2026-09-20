@@ -32,9 +32,10 @@ export interface LoopStats {
 }
 
 /**
- * Owns the game, the pacing and the running statistics; rendering is someone else's job.
  * `tick()` rejects when the policy or model fails and leaves the game unchanged; the caller
- * decides whether to stop or retry.
+ * decides whether to stop or retry. It also discards (rather than applies) a decision that was
+ * still in flight when `reset()` ran, so a slow inference call can never step a game that the
+ * user has already moved on from.
  */
 export class GameLoop {
   game: SnakeGame;
@@ -42,6 +43,8 @@ export class GameLoop {
   paused = false;
   maxSpeed = false;
   fps: number;
+  /** Bumped by every `reset()`; lets `advance()` detect a reset that raced an in-flight decision. */
+  generation = 0;
   readonly stats: LoopStats;
 
   private readonly agent: SnakeAgent;
@@ -52,7 +55,7 @@ export class GameLoop {
   constructor(agent: SnakeAgent, settings: LoopSettings) {
     this.agent = agent;
     this.settings = settings;
-    this.fps = settings.fps;
+    this.fps = Number.isFinite(settings.fps) ? Math.min(240, Math.max(1, settings.fps)) : 12;
     this.game = this.newGame(settings.seed);
     this.stats = {
       best: 0,
@@ -93,6 +96,7 @@ export class GameLoop {
   /** Next round with the next seed, like the terminal demo's R key. */
   reset(): void {
     this.stats.round += 1;
+    this.generation += 1;
     this.game = this.newGame(this.settings.seed + this.stats.round - 1);
     this.lastDecision = null;
   }
@@ -109,10 +113,15 @@ export class GameLoop {
   private async advance(): Promise<void> {
     if (this.paused) return;
     if (this.finished) return;
+    const game = this.game;
     const options: PolicyOptions = { guarded: this.settings.guarded, prompt: this.settings.prompt };
-    const decision = await decide(this.agent, this.game, options);
+    const decision = await decide(this.agent, game, options);
+    // A reset() (e.g. the user pressing R) may have replaced `this.game` while we were awaiting
+    // the model; the decision was made against a game that no longer exists, so it must not be
+    // applied to whatever game is current now.
+    if (game !== this.game) return;
     this.lastDecision = decision;
-    this.game.step(decision.executed);
+    game.step(decision.executed);
     this.stats.decisions += 1;
     if (decision.intervened) this.stats.interventions += 1;
     this.stats.best = Math.max(this.stats.best, this.game.score);
