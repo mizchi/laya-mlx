@@ -1,0 +1,22 @@
+{
+  "name": "laya-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "echo \"no unit tests in laya-demo yet\"",
+    "test:browser": "playwright test"
+  },
+  "dependencies": {
+    "@laya-mlx/web": "workspace:*",
+    "onnxruntime-web": "^1.30.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "vite": "^8.0.0",
+    "vite-plugin-static-copy": "^4.1.1"
+  }
+}

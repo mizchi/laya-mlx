@@ -169,7 +169,12 @@ export class OnnxRunner implements Runner {
       try {
         const session = await ort.InferenceSession.create(model, {
           executionProviders: [provider],
-          graphOptimizationLevel: "all",
+          // The "extended"/"all" graph transformations include a SkipLayerNormalization fusion
+          // that onnxruntime-web's WebGPU (JSEP) kernel cannot run against this checkpoint's
+          // fp16 weights ("Error: Beta must be 1D", reproduced with a 1-row synthetic batch
+          // regardless of input shape); "basic" skips that fusion and runs correctly. wasm is
+          // unaffected, so it keeps the full optimization level.
+          graphOptimizationLevel: provider === "webgpu" ? "basic" : "all",
         });
         return new OnnxRunner(session, provider);
       } catch (error) {

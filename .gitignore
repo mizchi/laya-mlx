@@ -16,3 +16,4 @@ artifacts/
 node_modules/
 web/apps/demo/test-results/
 web/apps/demo/playwright-report/
+web/apps/demo/public/models/
