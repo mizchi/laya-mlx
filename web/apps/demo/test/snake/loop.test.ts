@@ -31,15 +31,26 @@ describe("GameLoop", () => {
     expect(loop.game.ticks).toBe(0);
     expect(loop.paused).toBe(true);
   });
-  it("starts a new round with the next seed on reset and when a round ends", async () => {
+  it("starts a new round with the next seed on reset", async () => {
     const loop = new GameLoop(new StubAgent(), settings);
     loop.reset();
     expect(loop.stats.round).toBe(2);
     expect(loop.game.seed).toBe(settings.seed + 1);
+  });
+  it("tick() is a no-op on a finished game; reset() starts the next round", async () => {
+    const loop = new GameLoop(new StubAgent(), settings);
     loop.game.alive = false;
+    expect(loop.finished).toBe(true);
+    const ticksBefore = loop.game.ticks;
+    const decisionsBefore = loop.stats.decisions;
     await loop.tick();
-    expect(loop.stats.round).toBe(3);
-    expect(loop.game.alive).toBe(true);
+    expect(loop.game.ticks).toBe(ticksBefore);
+    expect(loop.stats.decisions).toBe(decisionsBefore);
+    expect(loop.finished).toBe(true);
+    expect(loop.stats.round).toBe(1);
+    loop.reset();
+    expect(loop.stats.round).toBe(2);
+    expect(loop.finished).toBe(false);
   });
   it("adjusts pacing within [1, 240] decisions per second", () => {
     const loop = new GameLoop(new StubAgent(), { ...settings, fps: 239 });
@@ -102,11 +113,16 @@ describe("GameLoop", () => {
     await loop.tick();
     expect(loop.stats.decisionsPerSecond).toBe(1);
   });
-  it("starts a new round when the game is won", async () => {
+  it("tick() is a no-op when the game is won; reset() starts the next round", async () => {
     const loop = new GameLoop(new StubAgent(), settings);
     loop.game.won = true;
+    expect(loop.finished).toBe(true);
     await loop.tick();
+    expect(loop.game.won).toBe(true);
+    expect(loop.stats.round).toBe(1);
+    loop.reset();
     expect(loop.stats.round).toBe(2);
     expect(loop.game.won).toBe(false);
+    expect(loop.finished).toBe(false);
   });
 });

@@ -2,9 +2,12 @@
  * Owns the game, the pacing and the running statistics for the browser Snake
  * demo. Rendering and keyboard/UI wiring are someone else's job. Ported from
  * the terminal loop in ../../../laya_mlx/snake/cli.py: pause, ±2 fps within
- * [1, 240], R resets with the next seed (seed + round - 1), a finished round
- * starts the next one, and the best score / decisions-per-second stats are
- * tracked across rounds.
+ * [1, 240], R resets with the next seed (seed + round - 1), and the best
+ * score / decisions-per-second stats are tracked across rounds. `tick()`
+ * deliberately does NOT auto-start the next round once a round ends
+ * (`finished` becomes true) — the caller decides when to call `reset()`,
+ * which lets the final board stay on screen for as long as it wants before
+ * the next round begins.
  */
 import { SnakeGame } from "./game.ts";
 import { decide, type Decision, type PolicyOptions, type SnakeAgent } from "./policy.ts";
@@ -74,6 +77,11 @@ export class GameLoop {
     return (performance.now() - this.stats.startedAt) / 1000;
   }
 
+  /** True once the current round has ended (death or a cleared board); `tick()` is then a no-op. */
+  get finished(): boolean {
+    return !this.game.alive || this.game.won;
+  }
+
   togglePause(): void {
     this.paused = !this.paused;
   }
@@ -100,10 +108,7 @@ export class GameLoop {
 
   private async advance(): Promise<void> {
     if (this.paused) return;
-    if (!this.game.alive || this.game.won) {
-      this.reset();
-      return;
-    }
+    if (this.finished) return;
     const options: PolicyOptions = { guarded: this.settings.guarded, prompt: this.settings.prompt };
     const decision = await decide(this.agent, this.game, options);
     this.lastDecision = decision;

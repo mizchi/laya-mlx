@@ -3,6 +3,7 @@
  * ../../../laya_mlx/snake/ui.py's `compose`: a board on the left and a stats
  * panel on the right. No game logic lives here — only drawing.
  */
+import { $ } from "../dom.ts";
 import { DIRECTIONS, type Snapshot } from "./game.ts";
 import type { LoopStats } from "./loop.ts";
 import type { Decision } from "./policy.ts";
@@ -19,12 +20,6 @@ const BOARD_BG = "#0b1216";
 const DOT_COLOR = "#13272e";
 const HEAD_COLOR = "#dcfff0";
 const FOOD_COLOR = "#f5c26b";
-
-function $(id: string): HTMLElement {
-  const el = document.getElementById(id);
-  if (!el) throw new Error(`Missing element #${id}`);
-  return el;
-}
 
 function pad2(n: number): string {
   return n.toString().padStart(2, "0");
@@ -57,7 +52,15 @@ export class SnakeView {
   constructor(canvas: HTMLCanvasElement, width: number, height: number) {
     this.cols = width;
     this.rows = height;
-    this.cell = Math.max(1, Math.floor(Math.min(canvas.width / width, canvas.height / height)));
+    // Size cells off the canvas' column width (its CSS max-width: 100% then shrinks the drawn
+    // pixels back down on narrow viewports) rather than the markup's fixed 480x320 attributes,
+    // so the board actually fills the column on desktop instead of floating in a fraction of it.
+    const available = canvas.parentElement?.clientWidth || canvas.width;
+    const availableHeight = 640;
+    this.cell = Math.max(
+      4,
+      Math.min(32, Math.floor(available / width), Math.floor(availableHeight / height)),
+    );
     canvas.width = this.cell * width;
     canvas.height = this.cell * height;
     const ctx = canvas.getContext("2d");

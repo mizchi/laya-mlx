@@ -4,17 +4,17 @@
  * pacing behaviour from ../../../laya_mlx/snake/cli.py (a 1s pause at the end
  * of a round so the final board stays visible before the next one starts).
  */
+import { $ } from "../dom.ts";
 import { loadDemoAgent, type LoaderUi } from "../loader.ts";
 import { GameLoop, type LoopSettings } from "./loop.ts";
 import type { PromptKind, SnakeAgent } from "./policy.ts";
 import { StubAgent } from "./stub-agent.ts";
 import { SnakeView, type GameState } from "./view.ts";
 
-function $(id: string): HTMLElement {
-  const el = document.getElementById(id);
-  if (!el) throw new Error(`Missing element #${id}`);
-  return el;
-}
+/** How long the final board of a round stays on screen before the next round starts. */
+const ROUND_END_PAUSE_MS = 1000;
+/** Poll interval while paused, so a click/keypress is picked up quickly without busy-waiting. */
+const PAUSED_POLL_MS = 100;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -109,10 +109,15 @@ async function start(): Promise<void> {
   draw();
   for (;;) {
     const startedAt = performance.now();
-    const finished = !loop.game.alive || loop.game.won;
     await loop.tick();
     draw();
-    await sleep(finished ? 1000 : loop.paused ? 100 : loop.delayAfter(startedAt));
+    if (loop.finished) {
+      await sleep(ROUND_END_PAUSE_MS);
+      loop.reset();
+      draw();
+      continue;
+    }
+    await sleep(loop.paused ? PAUSED_POLL_MS : loop.delayAfter(startedAt));
   }
 }
 
