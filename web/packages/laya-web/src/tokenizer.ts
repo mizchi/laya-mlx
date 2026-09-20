@@ -26,13 +26,25 @@ interface TokenizerConfig {
 }
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const isWhitespace = (ch: string) => /\p{White_Space}/u.test(ch);
+
+interface AddedTokenInfo {
+  id: number;
+  lstrip: boolean;
+  rstrip: boolean;
+}
 
 /**
  * Encoder matching the Rust `tokenizers` crate for Metaspace BPE tokenizers.
  *
- * Added tokens are matched on the raw text, longest first, honoring lstrip/rstrip.
- * Each remaining segment gets the checkpoint's normalizer (" " -> "▁") and the
- * Metaspace `always` prepend, then is split so every piece starts with "▁"
+ * Added tokens are matched on the raw text in two phases, mirroring Rust's
+ * `tokenizers` crate: phase 1 finds every added-token CONTENT match (leftmost,
+ * longest-content-first, non-overlapping); phase 2 then extends each match's
+ * lstrip/rstrip over adjacent whitespace, but never past a neighboring match's
+ * own (possibly already-extended) boundary. This is what keeps e.g. the `\n`
+ * added token from being swallowed by `<mask>`'s lstrip in `"\n<mask>"`.
+ * Each remaining gap segment gets the checkpoint's normalizer (" " -> "▁") and
+ * the Metaspace `always` prepend, then is split so every piece starts with "▁"
  * (Rust's MergedWithNext). Pieces contain neither added tokens nor consecutive
  * "▁", which is where tokenizers.js diverges from Rust.
  */
@@ -46,8 +58,8 @@ export class LayaTokenizer {
   readonly padTokenId: number;
   readonly maskTokenId: number;
   private readonly inner: Tokenizer;
-  private readonly addedPattern: RegExp;
-  private readonly addedIds: Map<string, number>;
+  private readonly contentPattern: RegExp;
+  private readonly addedTokenInfo: Map<string, AddedTokenInfo>;
   private readonly replacement: string;
   private readonly pieceSplitter: RegExp;
 
@@ -66,20 +78,12 @@ export class LayaTokenizer {
     const added = [...tokenizerJson.added_tokens].sort(
       (a, b) => b.content.length - a.content.length,
     );
-    this.addedIds = new Map(added.map((a) => [a.content, a.id]));
-    this.addedPattern = new RegExp(
-      added
-        .map(
-          (a) =>
-            (a.lstrip ? "\\s*" : "") +
-            "(" +
-            escapeRegExp(a.content) +
-            ")" +
-            (a.rstrip ? "\\s*" : ""),
-        )
-        .join("|"),
-      "gu",
+    this.addedTokenInfo = new Map(
+      added.map((a) => [a.content, { id: a.id, lstrip: a.lstrip, rstrip: a.rstrip }]),
     );
+    // Content only, no \s* here: lstrip/rstrip are applied as a second pass
+    // once every content match's position is known (see `matchAddedTokens`).
+    this.contentPattern = new RegExp(added.map((a) => escapeRegExp(a.content)).join("|"), "gu");
     this.pieceSplitter = new RegExp(
       `${escapeRegExp(this.replacement)}[^${escapeRegExp(this.replacement)}]*`,
       "gu",
@@ -87,7 +91,7 @@ export class LayaTokenizer {
     const special = (name: keyof TokenizerConfig): [string, number] => {
       const raw = tokenizerConfig[name];
       const content = typeof raw === "string" ? raw : raw?.content;
-      const id = content === undefined ? undefined : this.addedIds.get(content);
+      const id = content === undefined ? undefined : this.addedTokenInfo.get(content)?.id;
       if (content === undefined || id === undefined)
         throw new Error(`Tokenizer is missing a valid ${name}`);
       return [content, id];
@@ -102,16 +106,47 @@ export class LayaTokenizer {
   encode(text: string): number[] {
     const ids: number[] = [];
     let last = 0;
-    for (const match of text.matchAll(this.addedPattern)) {
-      ids.push(...this.encodeSegment(text.slice(last, match.index)));
-      // Exactly one capture group matches per alternation branch in addedPattern.
-      const content = match.slice(1).find((group) => group !== undefined);
-      if (content === undefined) throw new Error("unreachable: no added-token group matched");
-      ids.push(this.addedIds.get(content)!);
-      last = match.index + match[0].length;
+    for (const match of this.matchAddedTokens(text)) {
+      ids.push(...this.encodeSegment(text.slice(last, match.start)));
+      ids.push(match.id);
+      last = match.end;
     }
     ids.push(...this.encodeSegment(text.slice(last)));
     return ids;
+  }
+
+  /**
+   * Phase 1: find every added-token content match, leftmost first (ties broken
+   * by content length via `contentPattern`'s alternation order), non-overlapping.
+   * Phase 2: extend each match's [start, end) over adjacent whitespace per its
+   * lstrip/rstrip, bounded by the neighboring match so extensions never cross
+   * into another added token's content or its own extension.
+   */
+  private matchAddedTokens(text: string): { start: number; end: number; id: number }[] {
+    const raw: { start: number; end: number; info: AddedTokenInfo }[] = [];
+    for (const m of text.matchAll(this.contentPattern)) {
+      const info = this.addedTokenInfo.get(m[0]);
+      if (info === undefined)
+        throw new Error("unreachable: contentPattern matched unknown content");
+      raw.push({ start: m.index, end: m.index + m[0].length, info });
+    }
+    const extended: { start: number; end: number; id: number }[] = [];
+    let prevEnd = 0;
+    for (let i = 0; i < raw.length; i++) {
+      const { start: rawStart, end: rawEnd, info } = raw[i]!;
+      let start = rawStart;
+      let end = rawEnd;
+      if (info.lstrip) {
+        while (start > prevEnd && isWhitespace(text[start - 1]!)) start--;
+      }
+      const nextStart = i + 1 < raw.length ? raw[i + 1]!.start : text.length;
+      if (info.rstrip) {
+        while (end < nextStart && isWhitespace(text[end]!)) end++;
+      }
+      extended.push({ start, end, id: info.id });
+      prevEnd = end;
+    }
+    return extended;
   }
 
   private encodeSegment(segment: string): number[] {

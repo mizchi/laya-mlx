@@ -59,6 +59,14 @@ TOKENIZER_CASES = [
     "発票4411被重复扣款，请今天退款。",
     "[MASK] <mask> hello [MASK] <mask>",
     "",
+    "\n<mask>",
+    "\n\n\n<mask>",
+    "x\n\n\n<mask>\n\n\ny",
+    "<mask>\n",
+    "x   <mask>",
+    "x\t<mask>",
+    "　<mask>",
+    "<mask> \n<mask>",
 ]
 
 
