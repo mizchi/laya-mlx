@@ -34,7 +34,11 @@ export function confidenceFromProbs(p: number[], k: number): number {
   return Math.min(Math.max(1 - entropy / Math.log(k), 0), 1);
 }
 
-/** Python `round(x, 4)` for the values this runtime produces. */
+/**
+ * Python `round(x, 4)` for the values this runtime produces. `toFixed` rounds the decimal
+ * expansion half-up while Python `round` is half-even on the binary value; they differ only at
+ * exact ties, which softmax outputs do not produce.
+ */
 export const round4 = (x: number): number => Number(x.toFixed(4));
 
 export interface FormatInput {
@@ -51,8 +55,23 @@ export interface FormatInput {
 /** The second half of Python `Agent.system_one`: calibrated answers for one batch. */
 export function formatAnswers(input: FormatInput): PredictResult {
   const { config, questionIds, internal, items, logits, actLogits, markers, actions } = input;
-  for (const value of [...logits, ...actLogits]) {
-    if (!Number.isFinite(value)) throw new RangeError("Non-finite model outputs");
+  if (logits.length !== items.length * markers) {
+    throw new RangeError("formatAnswers: logits length mismatch");
+  }
+  if (actLogits.length !== items.length * actions) {
+    throw new RangeError("formatAnswers: actLogits length mismatch");
+  }
+  if (questionIds.length !== items.length) {
+    throw new RangeError("formatAnswers: questionIds length mismatch");
+  }
+  if (internal.length !== items.length) {
+    throw new RangeError("formatAnswers: internal length mismatch");
+  }
+  for (let i = 0; i < logits.length; i++) {
+    if (!Number.isFinite(logits[i])) throw new RangeError("Non-finite model outputs");
+  }
+  for (let i = 0; i < actLogits.length; i++) {
+    if (!Number.isFinite(actLogits[i])) throw new RangeError("Non-finite model outputs");
   }
   const answers: Record<string, Answer> = {};
   items.forEach((item, row) => {
@@ -73,7 +92,8 @@ export function formatAnswers(input: FormatInput): PredictResult {
     };
     if (q.t === "choice") {
       const labels = Object.keys(q.crit);
-      const best = p.indexOf(Math.max(...p));
+      let best = 0;
+      for (let i = 1; i < p.length; i++) if (p[i]! > p[best]!) best = i;
       answers[qid] = {
         type: "choice",
         ...base,

@@ -84,4 +84,38 @@ describe("formatAnswers", () => {
       }),
     ).toThrow(/Non-finite/);
   });
+
+  describe("input length validation", () => {
+    const q = toInternal({ type: "noul", instructions: "x" });
+    const base = {
+      config: fixture.config,
+      questionIds: ["q"],
+      internal: [q],
+      items: [{ ids: [2, 1], markers: [1, 2], qtype: 2 }],
+      logits: Float32Array.from([0, 0]),
+      actLogits: Float32Array.from([0, 0]),
+      markers: 2,
+      actions: 2,
+    };
+    it("rejects a logits length mismatch", () => {
+      expect(() => formatAnswers({ ...base, logits: Float32Array.from([0, 0, 0]) })).toThrow(
+        /formatAnswers: logits length mismatch/,
+      );
+    });
+    it("rejects an actLogits length mismatch", () => {
+      expect(() => formatAnswers({ ...base, actLogits: Float32Array.from([0, 0, 0]) })).toThrow(
+        /formatAnswers: actLogits length mismatch/,
+      );
+    });
+    it("rejects a questionIds length mismatch", () => {
+      expect(() => formatAnswers({ ...base, questionIds: ["q", "q2"] })).toThrow(
+        /formatAnswers: questionIds length mismatch/,
+      );
+    });
+    it("rejects an internal length mismatch", () => {
+      expect(() => formatAnswers({ ...base, internal: [q, q] })).toThrow(
+        /formatAnswers: internal length mismatch/,
+      );
+    });
+  });
 });
