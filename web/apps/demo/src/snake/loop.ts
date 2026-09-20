@@ -28,7 +28,11 @@ export interface LoopStats {
   decisionsPerSecond: number;
 }
 
-/** Owns the game, the pacing and the running statistics; rendering is someone else's job. */
+/**
+ * Owns the game, the pacing and the running statistics; rendering is someone else's job.
+ * `tick()` rejects when the policy or model fails and leaves the game unchanged; the caller
+ * decides whether to stop or retry.
+ */
 export class GameLoop {
   game: SnakeGame;
   lastDecision: Decision | null = null;

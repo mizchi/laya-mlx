@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { GameLoop } from "../../src/snake/loop.ts";
+import type { SnakeAgent } from "../../src/snake/policy.ts";
 import { StubAgent } from "../../src/snake/stub-agent.ts";
 
 const settings = {
@@ -73,5 +74,39 @@ describe("GameLoop", () => {
     expect(delay).toBeLessThanOrEqual(100);
     loop.maxSpeed = true;
     expect(loop.delayAfter(startedAt)).toBe(0);
+  });
+  it("propagates a predict() rejection without mutating game state, then recovers", async () => {
+    let fail = true;
+    const agent: SnakeAgent = {
+      predict: (state, questions) =>
+        fail ? Promise.reject(new Error("boom")) : new StubAgent().predict(state, questions),
+    };
+    const loop = new GameLoop(agent, settings);
+    const ticksBefore = loop.game.ticks;
+    await expect(loop.tick()).rejects.toThrow("boom");
+    expect(loop.stats.decisions).toBe(0);
+    expect(loop.game.ticks).toBe(ticksBefore);
+    fail = false;
+    await loop.tick();
+    expect(loop.stats.decisions).toBe(1);
+    expect(loop.game.ticks).toBe(ticksBefore + 1);
+  });
+  it("rejects every concurrent tick() call when the shared decision rejects", async () => {
+    const agent: SnakeAgent = { predict: () => Promise.reject(new Error("boom")) };
+    const loop = new GameLoop(agent, settings);
+    const results = await Promise.allSettled([loop.tick(), loop.tick(), loop.tick()]);
+    expect(results.map((r) => r.status)).toEqual(["rejected", "rejected", "rejected"]);
+  });
+  it("counts one decision per second immediately after a single tick", async () => {
+    const loop = new GameLoop(new StubAgent(), settings);
+    await loop.tick();
+    expect(loop.stats.decisionsPerSecond).toBe(1);
+  });
+  it("starts a new round when the game is won", async () => {
+    const loop = new GameLoop(new StubAgent(), settings);
+    loop.game.won = true;
+    await loop.tick();
+    expect(loop.stats.round).toBe(2);
+    expect(loop.game.won).toBe(false);
   });
 });
