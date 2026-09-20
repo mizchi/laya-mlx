@@ -79,6 +79,7 @@ async function start(): Promise<void> {
       },
       game.history,
     );
+    board.setInteractive(game.isUserTurn && !game.status.over);
     document.body.dataset.ready = "1";
   }
 
@@ -96,7 +97,6 @@ async function start(): Promise<void> {
       thinking = false;
     }
     draw();
-    board.setInteractive(game.isUserTurn);
   }
 
   async function runAiMove(): Promise<void> {
@@ -111,18 +111,13 @@ async function start(): Promise<void> {
     const san = game.applyMove({ from, to });
     if (!san) return;
     draw();
-    if (game.status.over) {
-      board.setInteractive(false);
-      return;
-    }
-    await runAiMove();
+    if (!game.status.over) await runAiMove();
   }
 
   function newGame(): void {
     game = new ChessGame(fen, side);
     lastDecision = null;
     draw();
-    board.setInteractive(game.isUserTurn);
     if (!game.isUserTurn && !game.status.over) void runAiMove();
   }
 
@@ -138,7 +133,6 @@ async function start(): Promise<void> {
   }, 1000);
 
   draw();
-  board.setInteractive(game.isUserTurn);
   if (!game.isUserTurn && !game.status.over) await runAiMove();
 }
 

@@ -113,7 +113,7 @@ export class BoardView {
       }
     }
 
-    const lastMove = game.chess.history({ verbose: true }).at(-1);
+    const lastMove = game.lastMove;
     const board = game.board();
 
     for (const rank of RANKS) {
@@ -129,7 +129,7 @@ export class BoardView {
         button.classList.toggle("target", this.targets.has(square));
         button.classList.toggle(
           "last",
-          lastMove !== undefined && (lastMove.from === square || lastMove.to === square),
+          lastMove !== null && (lastMove.from === square || lastMove.to === square),
         );
 
         const cell = board[8 - rank]?.[fileIndex] ?? null;

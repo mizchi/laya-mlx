@@ -45,4 +45,12 @@ describe("ChessGame", () => {
     expect(board[7]![4]).toEqual({ square: "e1", type: "k", color: "w" });
     expect(board[3]![3]).toBeNull();
   });
+  it("reports the last move's from/to squares, or null before any move", () => {
+    const g = new ChessGame();
+    expect(g.lastMove).toBeNull();
+    g.applyMove({ from: "e2", to: "e4" });
+    expect(g.lastMove).toEqual({ from: "e2", to: "e4" });
+    g.applyMove("e5");
+    expect(g.lastMove).toEqual({ from: "e7", to: "e5" });
+  });
 });

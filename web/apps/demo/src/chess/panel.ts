@@ -4,6 +4,7 @@
  * only drawing, mirroring ../snake/view.ts's panel half.
  */
 import { $ } from "../dom.ts";
+import { engineTitle, formatClock, pad4, setStateClass } from "../hud.ts";
 import type { Decision } from "./policy.ts";
 
 export interface PanelStats {
@@ -15,19 +16,6 @@ export interface PanelLabels {
   state: string;
   status: string;
   elapsedSeconds: number;
-}
-
-function pad2(n: number): string {
-  return n.toString().padStart(2, "0");
-}
-
-function pad4(n: number): string {
-  return n.toString().padStart(4, "0");
-}
-
-function clock(seconds: number): string {
-  const total = Math.max(0, Math.floor(seconds));
-  return `${pad2(Math.floor(total / 60))}:${pad2(total % 60)}`;
 }
 
 export class PanelView {
@@ -79,17 +67,16 @@ export class PanelView {
     $("output-tokens").textContent = String(decision?.outputTokens ?? 0);
 
     $("engine").textContent = labels.engine;
-    $("engine-title").textContent = labels.engine.split(" · ")[0] ?? labels.engine;
+    $("engine-title").textContent = engineTitle(labels.engine);
 
     $("interventions").textContent = pad4(stats.interventions);
 
     const state = $("state");
     state.textContent = labels.state;
-    state.classList.remove("green", "red");
-    state.classList.add(labels.state === "GAME OVER" || labels.state === "ERROR" ? "red" : "green");
+    setStateClass(state, labels.state !== "GAME OVER" && labels.state !== "ERROR");
 
     $("status").textContent = labels.status;
-    $("clock").textContent = clock(labels.elapsedSeconds);
+    $("clock").textContent = formatClock(labels.elapsedSeconds);
 
     const moves = $("moves");
     moves.innerHTML = "";

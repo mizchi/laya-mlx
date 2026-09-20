@@ -39,6 +39,11 @@ export class ChessGame {
     const targets = this.chess.moves({ square: from as Square, verbose: true }).map((m) => m.to);
     return [...new Set(targets)];
   }
+  /** The last played move's from/to squares, or null before any move has been made. */
+  get lastMove(): { from: string; to: string } | null {
+    const last = this.chess.history({ verbose: true }).at(-1);
+    return last ? { from: last.from, to: last.to } : null;
+  }
   /** Apply a SAN string or a from/to pair (promotion defaults to queen). Returns the SAN or null if illegal. */
   applyMove(move: string | MoveInput): string | null {
     try {
