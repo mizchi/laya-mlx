@@ -7,13 +7,15 @@ and returns the same JSON as the Python `Agent.predict`. `apps/demo` is the stat
 - `parity.html` — fixture-driven parity check against the MLX runtime
 - `snake.html` — the browser Snake demo (see [docs/SNAKE_DEMO.md](../docs/SNAKE_DEMO.md) for URL parameters
   and controls)
+- `chess.html` — the browser chess demo, playing against Laya (see
+  [docs/CHESS_DEMO.md](../docs/CHESS_DEMO.md) for URL parameters and controls)
 
 ```bash
 pnpm install
 pnpm typecheck && pnpm test                      # Node tests; fixture based, no model needed
 LAYA_TOKENIZER_DIR=<bundle>/tokenizer pnpm test  # also the tokenizer / prompt / agent parity tests
 pnpm --filter laya-demo dev                      # http://localhost:5173
-pnpm test:browser                                # builds the site, runs the index smoke test and the Snake stub tests
+pnpm test:browser                                # builds the site, runs the index smoke test, the Snake stub tests and the chess stub tests
 LAYA_MODEL_URL=https://huggingface.co/mizchi/laya-multilingual-onnx/resolve/main/ pnpm test:browser
 ```
 

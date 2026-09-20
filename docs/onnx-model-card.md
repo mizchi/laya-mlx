@@ -41,5 +41,7 @@ WebGPU for this graph.
 
 This is an independent port, not an official Convai Innovations release. Weights are Apache-2.0 as upstream.
 
-Live demo: https://huggingface.co/spaces/mizchi/laya-web-demo (Snake, runs the model in your browser) — also
-on the repository's GitHub Pages site (for the `mizchi/laya-mlx` fork: https://mizchi.github.io/laya-mlx/).
+Live demo: https://huggingface.co/spaces/mizchi/laya-web-demo (Snake and Chess, both run the model in your
+browser — direct pages: https://mizchi-laya-web-demo.static.hf.space/snake.html and
+https://mizchi-laya-web-demo.static.hf.space/chess.html) — also on the repository's GitHub Pages site (for the
+`mizchi/laya-mlx` fork: https://mizchi.github.io/laya-mlx/).
