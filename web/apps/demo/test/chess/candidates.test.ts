@@ -43,6 +43,32 @@ describe("shortlist", () => {
       expect(x.description).not.toContain("Hangs the king");
     }
   });
+  it("does not flag a quiet move when the threatened piece is defended (recapture quiescence)", () => {
+    // White pawn e4 is defended by Nc3; black knight f6 attacks it. An
+    // unrelated quiet move like h3 must not read as dropping the pawn: if
+    // black plays ...Nxe4, white recaptures Nxe4 and comes out even.
+    const fen = "4k3/8/5n2/8/4P3/2N5/7P/4K3 w - - 0 1";
+    const board = new Chess(fen);
+    const c = shortlist(board, 20);
+    const h3 = c.find((x) => x.san === "h3");
+    expect(h3).toBeDefined();
+    expect(h3!.description).toBe("Quiet move. Safe.");
+    expect(board.fen()).toBe(fen); // board restored despite the extra recapture nesting
+  });
+  it("credits a recapture that wins back more than it loses, keeping Safe", () => {
+    // White pawn e4 defended by Nc3; black queen g4 could grab the pawn but
+    // Nxe4 would then win the queen. Without quiescence the old scoring
+    // would have charged the candidate move for losing the pawn (it isn't:
+    // that branch is never actually the opponent's best reply).
+    const fen = "4k3/8/8/8/4P1q1/2N5/8/4K3 w - - 0 1";
+    const before = new Chess(fen);
+    const beforeFen = before.fen();
+    const c = shortlist(before, 20);
+    const kd2 = c.find((x) => x.san === "Kd2");
+    expect(kd2).toBeDefined();
+    expect(kd2!.description).toBe("Quiet move. Safe.");
+    expect(before.fen()).toBe(beforeFen); // board restored despite the extra recapture nesting
+  });
   it("marks moves that allow mate in one", () => {
     const c = shortlist(new Chess("6k1/5ppp/8/8/8/8/5PPP/R5K1 b - - 0 1"), 20);
     const losing = c.filter((x) => x.allowsMate);

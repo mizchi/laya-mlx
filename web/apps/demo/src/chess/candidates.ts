@@ -52,8 +52,51 @@ export interface ScoredMove {
   allowsMate: boolean;
 }
 
+// Matches the destination square right after the "x" in a capturing SAN
+// string (e.g. "Nxe4", "exd5", "Qbxd7+", "exd8=Q#"); the piece letters and
+// disambiguation before "x" don't matter for this.
+const CAPTURE_DEST_RE = /x([a-h][1-8])/;
+
+/**
+ * Value of the position for US after the opponent's reply captured on
+ * `square`, given that we may still have one immediate recapture there.
+ * Only scans replies to the *specific* square the opponent just captured on
+ * (not every capture we have available) — `chess.moves({ verbose: true })`
+ * is ~15x more expensive than the plain SAN list per call, and building
+ * `Move` objects for every candidate's every reply's every recapture check
+ * blew the perf budget (>1s on a busy middlegame); grepping SAN strings for
+ * "x<square>" keeps this to one cheap non-verbose `moves()` call per capturing
+ * reply. Caller undoes the outer moves; this always restores its own.
+ */
+function bestRecapture(chess: Chess, standPat: number, square: string): number {
+  let best = standPat;
+  for (const san of chess.moves()) {
+    const captureSquare = CAPTURE_DEST_RE.exec(san)?.[1];
+    if (captureSquare !== square) continue;
+    chess.move(san);
+    try {
+      let v: number;
+      if (chess.isCheckmate()) {
+        v = MATE;
+      } else if (chess.isDraw()) {
+        v = 0;
+      } else {
+        // It is the opponent's turn again after our recapture: negate their
+        // perspective to get ours.
+        v = -evaluateMaterial(chess);
+      }
+      if (v > best) best = v;
+    } finally {
+      chess.undo();
+    }
+  }
+  return best;
+}
+
 /** Score a legal move by playing it, then the opponent's best (worst-for-us) reply. */
 export function scoreMove(chess: Chess, move: Move): ScoredMove {
+  // Play the candidate move; the try/finally below always undoes it before
+  // we return, however this function exits.
   if (move.promotion) {
     chess.move({ from: move.from, to: move.to, promotion: move.promotion });
   } else {
@@ -68,10 +111,10 @@ export function scoreMove(chess: Chess, move: Move): ScoredMove {
     }
 
     let worst = Infinity;
-    let worstSan: string | null = null;
+    let worstReply: Move | null = null;
     let allowsMate = false;
-    for (const san of chess.moves()) {
-      chess.move(san);
+    for (const replyMove of chess.moves({ verbose: true })) {
+      chess.move(replyMove.san);
       try {
         let value: number;
         let mates = false;
@@ -81,11 +124,17 @@ export function scoreMove(chess: Chess, move: Move): ScoredMove {
         } else if (chess.isDraw()) {
           value = 0;
         } else {
-          value = evaluateMaterial(chess);
+          // One-step capture quiescence: a piece that lands on a defended
+          // square isn't actually lost, so let us recapture on it before
+          // scoring the reply as a material loss (fixes the horizon effect
+          // where a defended piece reads as "hung"). Only worth scanning for
+          // a recapture when the reply itself captured something.
+          const standPat = evaluateMaterial(chess);
+          value = replyMove.isCapture() ? bestRecapture(chess, standPat, replyMove.to) : standPat;
         }
         if (value < worst) {
           worst = value;
-          worstSan = san;
+          worstReply = replyMove;
           allowsMate = mates;
         }
       } finally {
@@ -93,13 +142,9 @@ export function scoreMove(chess: Chess, move: Move): ScoredMove {
       }
     }
 
-    const reply =
-      worstSan !== null
-        ? (chess.moves({ verbose: true }).find((m) => m.san === worstSan) ?? null)
-        : null;
-
     let bonus = 0;
     if (chess.inCheck()) bonus += 0.1;
+    // Hand-tuned nudges to break material ties; smaller than a pawn on purpose.
     if (move.isKingsideCastle() || move.isQueensideCastle()) bonus += 0.3;
     if ((move.piece === "n" || move.piece === "b") && isBackRank(move.from, move.color))
       bonus += 0.2;
@@ -111,7 +156,7 @@ export function scoreMove(chess: Chess, move: Move): ScoredMove {
     }
 
     const worstValue = worst === Infinity ? 0 : worst;
-    return { score: worstValue + bonus, reply, allowsMate };
+    return { score: worstValue + bonus, reply: worstReply, allowsMate };
   } finally {
     chess.undo();
   }
