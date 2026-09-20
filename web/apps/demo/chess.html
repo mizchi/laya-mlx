@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Laya Chess</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body class="chess">
+    <header class="bar">
+      <span class="muted">LAYA / LOCAL INTELLIGENCE</span>
+      <span id="state" class="state">LOADING</span>
+    </header>
+    <main class="layout">
+      <section class="board">
+        <h1>C H E S S <span id="status" class="muted">White to move</span></h1>
+        <div id="board" class="chessboard" role="grid" aria-label="Chess board"></div>
+        <div class="controls">
+          <button id="new-game">New game</button>
+          <button id="switch-sides">Play as black</button>
+        </div>
+        <ol id="moves" class="moves"></ol>
+      </section>
+      <aside class="panel">
+        <h2>Laya <span id="engine-title" class="muted">WebGPU</span></h2>
+        <p id="loading" class="muted">loading model…</p>
+        <div class="row"><span>CANDIDATES</span><span class="muted">MODEL PROBABILITIES</span></div>
+        <ul id="candidates"></ul>
+        <div class="row">
+          <span class="muted">EXECUTING</span><strong id="executing">—</strong
+          ><span id="shield" class="amber" hidden>SHIELD</span>
+        </div>
+        <div class="metric">
+          <span class="muted">KING IN DANGER</span
+          ><span class="track"><span id="danger-bar" class="bar amber"></span></span
+          ><span id="danger-val">0.00</span>
+        </div>
+        <dl class="stats">
+          <dt>INFERENCE</dt>
+          <dd id="inference">0.0 ms</dd>
+          <dt>PLANNER</dt>
+          <dd id="planner">0.0 ms</dd>
+          <dt>OUTPUT TOKENS</dt>
+          <dd id="output-tokens">0</dd>
+          <dt>NETWORK</dt>
+          <dd class="green">OFFLINE AFTER LOAD</dd>
+          <dt>ENGINE</dt>
+          <dd id="engine">—</dd>
+        </dl>
+        <p class="muted">Laya + blunder shield</p>
+        <p class="amber">Shield interventions <span id="interventions">0000</span></p>
+      </aside>
+    </main>
+    <footer class="bar">
+      <span class="muted"
+        >Click a piece, then a highlighted square. Promotion is always a queen.</span
+      ><span id="clock" class="muted">00:00</span>
+    </footer>
+    <script type="module" src="/src/chess/main.ts"></script>
+  </body>
+</html>

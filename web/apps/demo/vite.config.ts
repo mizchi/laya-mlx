@@ -129,6 +129,7 @@ export default defineConfig({
         index: resolve("index.html"),
         parity: resolve("parity.html"),
         snake: resolve("snake.html"),
+        chess: resolve("chess.html"),
       },
     },
     // `public/models/` holds a symlink to a local ONNX bundle used only for manual/e2e testing;
