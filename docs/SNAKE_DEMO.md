@@ -112,3 +112,42 @@ The benchmark measures model inference, planning, Rich composition, ANSI seriali
 The final truecolor M3 Max run completed 8,160 decisions with zero deaths, including 2,400 uncapped steps at **63.61 steps/second overall**. Its highest passing tested computation-budget setting was **20 FPS**, with an achieved paced rate of **18.69–18.94 steps/second**. Higher paced settings failed the stated deadline criterion, while the game remained alive. See the complete [Snake benchmark report](SNAKE_BENCHMARKS.md) for per-seed results, interventions and limitations.
 
 For a social clip, the default 12 FPS target gives viewers time to see the selected direction and growing score. `--max-speed` demonstrates measured throughput. The included 30-second video preserves the original pace of its source run.
+
+## Browser
+
+The same game runs in the browser, no install required:
+
+- Hugging Face Space: https://huggingface.co/spaces/mizchi/laya-web-demo
+- GitHub Pages: https://mizchi.github.io/laya-mlx/snake.html (once Pages is enabled on the repository)
+
+Rules, the planner (legal directions, safe-cycle progress, connectivity) and the execution safety shield are
+plain TypeScript, ported directly from this terminal demo. Laya itself runs client-side with
+[onnxruntime-web](https://github.com/mizorewww/laya-mlx/tree/main/web) on the WebGPU backend (wasm fallback).
+The ONNX bundle downloads once from
+[mizchi/laya-multilingual-onnx](https://huggingface.co/mizchi/laya-multilingual-onnx) and is then cached by
+the browser; nothing round-trips to a server for inference.
+
+| Parameter | Meaning | Default |
+|---|---|---|
+| `model` | Model bundle URL, or `stub` for a scripted agent that needs no download/WebGPU | Hugging Face bundle above |
+| `width` | Board width | `24` |
+| `height` | Board height | `16` |
+| `seed` | RNG seed for food placement | `7` |
+| `length` | Initial snake length | `6` |
+| `fps` | Paced decision rate | `12` |
+| `max-speed` | Present (any value) to start in uncapped/max-speed mode | off |
+| `unassisted` | Present (any value) to disable the execution safety shield | off (shield on) |
+| `prompt` | `detailed` for the longer prompt variant, otherwise compact | `compact` |
+
+Example: `snake.html?width=16&height=16&seed=3&fps=20&prompt=detailed`.
+
+Controls match the terminal demo: Space pauses/resumes, ↑/+ and ↓/− change the paced speed by 2
+decisions/second, R starts a new round, and the on-page buttons mirror the same actions for touch/mouse.
+
+Desktop browsers with WebGPU (Chrome, Edge) are recommended; wasm-only browsers work but are noticeably
+slower. The page needs a secure context (https, or localhost during development).
+
+The browser port uses its own RNG, so board/food sequences differ from the terminal demo even with the same
+seed — only the rules, prompts and model are shared, not the pseudo-random stream. Behavioural parity (same
+prompts, same calibrated answers) between the Python and TypeScript implementations is verified by
+`web/fixtures/snake-multilingual.json`, not by matching board layouts.

@@ -1,0 +1,35 @@
+name: Space
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ vars.HF_SPACE != '' }}
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: cp space/README.md apps/demo/dist/README.md
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "huggingface_hub>=1,<2"
+      - run: hf upload "$HF_SPACE" apps/demo/dist . --repo-type space --commit-message "Deploy ${GITHUB_SHA::7}"
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE: ${{ vars.HF_SPACE }}

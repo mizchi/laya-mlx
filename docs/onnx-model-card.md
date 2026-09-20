@@ -40,3 +40,6 @@ measurements and the size analysis. onnxruntime-web 1.30.0 needs `graphOptimizat
 WebGPU for this graph.
 
 This is an independent port, not an official Convai Innovations release. Weights are Apache-2.0 as upstream.
+
+Live demo: https://huggingface.co/spaces/mizchi/laya-web-demo (Snake, runs the model in your browser) — also
+on GitHub Pages at https://mizchi.github.io/laya-mlx/ once Pages is enabled.

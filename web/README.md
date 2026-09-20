@@ -1,8 +1,12 @@
 # Laya in the browser
 
 `packages/laya-web` (`@laya-mlx/web`) runs a Laya ONNX bundle with onnxruntime-web (WebGPU, wasm fallback)
-and returns the same JSON as the Python `Agent.predict`. `apps/demo` is the static site: a parity page now,
-Snake and Chess demos next.
+and returns the same JSON as the Python `Agent.predict`. `apps/demo` is the static site with three pages:
+
+- `index.html` — landing page
+- `parity.html` — fixture-driven parity check against the MLX runtime
+- `snake.html` — the browser Snake demo (see [docs/SNAKE_DEMO.md](../docs/SNAKE_DEMO.md) for URL parameters
+  and controls)
 
 ```bash
 pnpm install
@@ -48,3 +52,24 @@ console.log(provider, result.answers.department);
 to `ort/` at build time and serves them from `node_modules` in dev. WebGPU needs a secure context (https or
 localhost). onnxruntime-web is pinned to 1.30.0 because its WebGPU backend needs `graphOptimizationLevel:
 "basic"` for this graph (see the comment in `packages/laya-web/src/session.ts`).
+
+## Deploying
+
+Two GitHub Actions workflows publish `apps/demo/dist`, independently:
+
+- [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) builds with
+  `VITE_BASE=/<repo-name>/` and deploys to GitHub Pages on every push to `main`. GitHub Pages must be set to
+  **Source: GitHub Actions** (repository Settings → Pages) before this workflow can deploy; it needs no
+  secrets.
+- [`.github/workflows/space.yml`](../.github/workflows/space.yml) builds with the default base (`/`), copies
+  [`space/README.md`](space/README.md) in as `dist/README.md` (the Space's model card / front matter), and
+  `hf upload`s the result to a Hugging Face static Space on push to `main`. It is gated on the repository
+  **variable** `HF_SPACE` (e.g. `mizchi/laya-web-demo`) being set — the job is skipped entirely when it is
+  empty — and needs the repository **secret** `HF_TOKEN` (a Hugging Face token with write access to that
+  Space).
+
+`space/README.md` carries the Space's front matter (`title`, `emoji`, `colorFrom`/`colorTo`, `sdk: static`,
+`license`, `models:`) plus a short description; Hugging Face renders it as the Space's landing page alongside
+the app. Edit it the same way as any other model-card front matter.
+
+Both workflows can also be triggered manually via `workflow_dispatch`.
