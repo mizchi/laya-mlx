@@ -136,6 +136,11 @@ async function fetchBytes(
       offset += chunk.byteLength;
     }
   }
+  // A short read (stream ended before `total` bytes arrived) is a corrupt download, not a
+  // smaller-than-declared one — never accept it, and never cache it as if it were complete.
+  if (total !== null && received !== total) {
+    throw new Error(`Truncated download: received ${received} of ${total} bytes from ${url}`);
+  }
   if (cache) {
     try {
       await cache.put(
@@ -151,9 +156,9 @@ async function fetchBytes(
       // Quota exceeded or storage disabled: the model still runs, it is just fetched again next time.
     }
   }
-  // `bytes` is already sized to exactly `received` bytes when the stream had no known length;
-  // when it was preallocated to `total` and the stream under-delivered, slice once to trim the
-  // unused tail so the returned ArrayBuffer is exactly `received` bytes.
+  // `bytes` is already sized to exactly `received` bytes in both branches: the truncation check
+  // above guarantees `received === total` (and therefore `=== bytes.byteLength`) whenever `total`
+  // was known, and the unknown-length branch always allocates exactly `received` bytes.
   return received === bytes.byteLength ? bytes.buffer : bytes.buffer.slice(0, received);
 }
 
@@ -266,7 +271,8 @@ export class OnnxRunner implements Runner {
 
 export interface LoadedAgent {
   agent: LayaAgent;
-  bundle: Bundle;
+  /** `Bundle` minus `model`: the up-to-647 MB model buffer is not handed back, see below. */
+  bundle: Omit<Bundle, "model">;
   provider: Provider;
 }
 
@@ -281,5 +287,9 @@ export async function loadAgent(baseUrl: string, options: LoadOptions = {}): Pro
     runner,
     ...(options.batchSize ? { batchSize: options.batchSize } : {}),
   });
-  return { agent, bundle, provider: runner.provider };
+  // `OnnxRunner.create` (via `InferenceSession.create`) has already copied `bundle.model`'s bytes
+  // into the ORT session; drop the reference here instead of returning it to the caller, so the
+  // up-to-647 MB ArrayBuffer is not kept alive twice and can be garbage collected.
+  const { model: _model, ...bundleWithoutModel } = bundle;
+  return { agent, bundle: bundleWithoutModel, provider: runner.provider };
 }

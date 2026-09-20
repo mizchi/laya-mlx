@@ -130,11 +130,11 @@ export default defineConfig({
         parity: resolve("parity.html"),
       },
     },
-    // `public/models/` holds a symlink to a local ONNX bundle used only for manual/e2e testing
-    // (see public/models/.gitkeep-equivalent note in README-less form: it's gitignored). Vite's
-    // default publicDir copy would dereference that symlink and duplicate the 600+ MB bundle
-    // into `dist/` on every build, so publicDir copying is disabled and only what the site
-    // actually needs (the ORT runtime assets, the parity fixture) is copied explicitly below.
+    // `public/models/` holds a symlink to a local ONNX bundle used only for manual/e2e testing;
+    // the directory is git-ignored and documented in `web/README.md`. Vite's default publicDir
+    // copy would dereference that symlink and duplicate the 600+ MB bundle into `dist/` on every
+    // build, so publicDir copying is disabled and only what the site actually needs (the ORT
+    // runtime assets, the parity fixture) is copied explicitly below.
     copyPublicDir: false,
   },
   plugins: [

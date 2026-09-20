@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { InferenceSession } from "onnxruntime-web";
+import type { LoadProgress } from "../src/session.ts";
 
 // `OnnxRunner.create` probes each provider's session with a real `run()` call before accepting
 // it (see session.ts), because `InferenceSession.create` alone does not catch every backend
@@ -23,7 +24,7 @@ vi.mock("onnxruntime-web", () => {
 });
 
 const ort = await import("onnxruntime-web");
-const { OnnxRunner } = await import("../src/session.ts");
+const { OnnxRunner, loadBundle } = await import("../src/session.ts");
 
 interface FakeSession {
   run: ReturnType<typeof vi.fn>;
@@ -128,5 +129,165 @@ describe("OnnxRunner.create (probe fallback)", () => {
     expect(message).toContain("wasm boom");
     expect(webgpu.release).toHaveBeenCalledTimes(1);
     expect(wasm.release).toHaveBeenCalledTimes(1);
+  });
+});
+
+/** Minimal, `loadBundle`-only fake `Response` for one of its three JSON fetches. */
+function jsonResponse(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+/** A streamed `Response` body, one `read()` per chunk, with an optional `content-length` header. */
+function streamResponse(chunks: Uint8Array[], contentLength: number | null): Response {
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(chunk);
+      controller.close();
+    },
+  });
+  const headers: Record<string, string> = {};
+  if (contentLength !== null) headers["content-length"] = String(contentLength);
+  return new Response(body, { status: 200, headers });
+}
+
+/** `rl_agent_config.json` / `onnx_config.json` / `tokenizer/tokenizer*.json` fetch routes shared by every `loadBundle` test; only `model.onnx` differs per test. */
+function baseJsonRoutes(): Record<string, () => Response> {
+  return {
+    "/rl_agent_config.json": () => jsonResponse({}),
+    "/onnx_config.json": () =>
+      jsonResponse({
+        format: "laya-onnx",
+        format_version: 1,
+        dtype: "float32",
+        opset: 17,
+        inputs: [],
+        outputs: [],
+      }),
+    "/tokenizer/tokenizer.json": () => jsonResponse({}),
+    "/tokenizer/tokenizer_config.json": () => jsonResponse({}),
+  };
+}
+
+/** Routes a stubbed `fetch` to a per-URL-suffix factory; throws on an unrouted URL. */
+function fetchRouter(routes: Record<string, () => Response>) {
+  return vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    for (const [suffix, factory] of Object.entries(routes)) {
+      if (url.endsWith(suffix)) return factory();
+    }
+    throw new Error(`unrouted fetch in test: ${url}`);
+  });
+}
+
+describe("loadBundle / fetchBytes", () => {
+  const baseUrl = "https://example.test/bundle/";
+  const modelUrl = `${baseUrl}model.onnx`;
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns the cached bytes on a cache hit and reports progress once", async () => {
+    const cachedBytes = Uint8Array.from([1, 2, 3, 4, 5]);
+    const cachePut = vi.fn();
+    const cacheMatch = vi.fn(async (url: string) =>
+      url === modelUrl ? new Response(cachedBytes) : undefined,
+    );
+    vi.stubGlobal("caches", { open: vi.fn(async () => ({ match: cacheMatch, put: cachePut })) });
+    vi.stubGlobal(
+      "fetch",
+      fetchRouter({
+        ...baseJsonRoutes(),
+        "/model.onnx": () => {
+          throw new Error("model.onnx must not be fetched on a cache hit");
+        },
+      }),
+    );
+
+    const progress: LoadProgress[] = [];
+    const bundle = await loadBundle(baseUrl, { onProgress: (p) => progress.push(p) });
+
+    expect(new Uint8Array(bundle.model)).toEqual(cachedBytes);
+    expect(progress).toEqual([{ file: modelUrl, received: 5, total: 5 }]);
+    expect(cachePut).not.toHaveBeenCalled();
+  });
+
+  it("streams a cache miss, reports progress per chunk, and caches the result", async () => {
+    const full = Uint8Array.from({ length: 10 }, (_, i) => i);
+    const cachePut = vi.fn(async () => {});
+    vi.stubGlobal("caches", {
+      open: vi.fn(async () => ({ match: vi.fn(async () => undefined), put: cachePut })),
+    });
+    vi.stubGlobal(
+      "fetch",
+      fetchRouter({
+        ...baseJsonRoutes(),
+        "/model.onnx": () => streamResponse([full.slice(0, 4), full.slice(4, 10)], 10),
+      }),
+    );
+
+    const progress: LoadProgress[] = [];
+    const bundle = await loadBundle(baseUrl, { onProgress: (p) => progress.push(p) });
+
+    expect(new Uint8Array(bundle.model)).toEqual(full);
+    expect(bundle.model.byteLength).toBe(10);
+    expect(progress.map((p) => [p.received, p.total])).toEqual([
+      [4, 10],
+      [10, 10],
+    ]);
+    expect(cachePut).toHaveBeenCalledTimes(1);
+    const [putUrl, putResponse] = cachePut.mock.calls[0] as unknown as [string, Response];
+    expect(putUrl).toBe(modelUrl);
+    expect(new Uint8Array(await putResponse.arrayBuffer())).toEqual(full);
+  });
+
+  it("still succeeds, without caching, when caches.open throws", async () => {
+    const full = Uint8Array.from([7, 8, 9]);
+    vi.stubGlobal("caches", {
+      open: vi.fn(async () => {
+        throw new Error("storage disabled");
+      }),
+    });
+    vi.stubGlobal(
+      "fetch",
+      fetchRouter({ ...baseJsonRoutes(), "/model.onnx": () => streamResponse([full], 3) }),
+    );
+
+    const bundle = await loadBundle(baseUrl);
+
+    expect(new Uint8Array(bundle.model)).toEqual(full);
+  });
+
+  it("rejects a download truncated below Content-Length and does not cache it", async () => {
+    const partial = Uint8Array.from([1, 2, 3, 4, 5, 6]);
+    const cachePut = vi.fn();
+    vi.stubGlobal("caches", {
+      open: vi.fn(async () => ({ match: vi.fn(async () => undefined), put: cachePut })),
+    });
+    vi.stubGlobal(
+      "fetch",
+      fetchRouter({ ...baseJsonRoutes(), "/model.onnx": () => streamResponse([partial], 10) }),
+    );
+
+    await expect(loadBundle(baseUrl)).rejects.toThrow(/Truncated download/);
+    expect(cachePut).not.toHaveBeenCalled();
+  });
+
+  it("never touches caches when cacheName is null", async () => {
+    const full = Uint8Array.from([1, 2, 3]);
+    const cachesOpen = vi.fn();
+    vi.stubGlobal("caches", { open: cachesOpen });
+    vi.stubGlobal(
+      "fetch",
+      fetchRouter({ ...baseJsonRoutes(), "/model.onnx": () => streamResponse([full], 3) }),
+    );
+
+    const bundle = await loadBundle(baseUrl, { cacheName: null });
+
+    expect(new Uint8Array(bundle.model)).toEqual(full);
+    expect(cachesOpen).not.toHaveBeenCalled();
   });
 });

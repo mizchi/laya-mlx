@@ -2,7 +2,6 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "e2e",
-  timeout: 15 * 60 * 1000,
   use: { baseURL: "http://127.0.0.1:4173" },
   webServer: {
     // Build then preview `dist/`, not `vite` (dev): dev serves ORT assets from node_modules and

@@ -13,6 +13,10 @@ test("browser predictions match the Python fixtures", async ({ page }) => {
     !modelUrl,
     "set LAYA_MODEL_URL=<bundle directory URL> to run the real-model parity check",
   );
+  // Downloading and running the real model (as opposed to every other test here, which uses
+  // fixtures) is slow enough to need more than the default per-test timeout; scope the extension
+  // to this test instead of raising it globally in playwright.config.ts.
+  test.setTimeout(15 * 60 * 1000);
   const lines: string[] = [];
   page.on("console", (message) => lines.push(message.text()));
   await page.goto(`/parity.html?model=${encodeURIComponent(modelUrl!)}`);

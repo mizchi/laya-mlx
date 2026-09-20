@@ -13,6 +13,10 @@ pnpm test:browser                                # builds the site, runs the ind
 LAYA_MODEL_URL=https://huggingface.co/mizchi/laya-multilingual-onnx/resolve/main/ pnpm test:browser
 ```
 
+The real-model test asserts that the WebGPU provider was used, which currently only works on macOS
+(the Playwright config passes `--use-angle=metal` on darwin); on Linux it will fail on that provider
+assertion.
+
 `uv run python -m benchmarks.web_fixtures` (repository root) regenerates `fixtures/parity-multilingual.json`
 from the MLX runtime; the TypeScript tests compare token ids, marker positions, collated batches and calibrated
 answers against it byte for byte. A bundle directory comes from `uv run laya-mlx export-onnx --dtype float16`.

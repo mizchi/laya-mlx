@@ -39,7 +39,14 @@ export class LayaAgent {
     if (!Number.isInteger(batchSize) || batchSize < 1)
       throw new Error("batchSize must be a positive integer");
     validateConfig(options.config);
-    this.config = options.config;
+    // Store a normalized config with `temperature`/`temperature_by_options` defaults applied, so
+    // `calibration.ts` (formatAnswers) can index them directly without repeating the `?? [1, 1,
+    // 1]` / `?? {}` fallback validateConfig already computed to check for.
+    this.config = {
+      ...options.config,
+      temperature: options.config.temperature ?? [1, 1, 1],
+      temperature_by_options: options.config.temperature_by_options ?? {},
+    };
     this.tokenizer = options.tokenizer;
     this.runner = options.runner;
     this.batchSize = batchSize;

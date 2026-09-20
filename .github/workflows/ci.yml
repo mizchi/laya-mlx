@@ -49,7 +49,22 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm format
       - run: pnpm typecheck
+      - name: Cache tokenizer files
+        id: tokenizer-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/laya-tokenizer
+          key: laya-tokenizer-b6314ec98e21d30a211d1a1786c914ccf478b7af
+      - name: Download tokenizer files
+        if: steps.tokenizer-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/laya-tokenizer"
+          base=https://huggingface.co/mizchi/laya-multilingual-onnx/resolve/b6314ec98e21d30a211d1a1786c914ccf478b7af/tokenizer
+          curl -fsSL "$base/tokenizer.json" -o "$RUNNER_TEMP/laya-tokenizer/tokenizer.json"
+          curl -fsSL "$base/tokenizer_config.json" -o "$RUNNER_TEMP/laya-tokenizer/tokenizer_config.json"
       - run: pnpm test
+        env:
+          LAYA_TOKENIZER_DIR: ${{ runner.temp }}/laya-tokenizer
       - run: pnpm build
       - run: pnpm --filter laya-demo exec playwright install --with-deps chromium
       - run: pnpm test:browser

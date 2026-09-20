@@ -90,6 +90,21 @@ describe.skipIf(!dir)("LayaAgent (needs LAYA_TOKENIZER_DIR)", () => {
     ).toThrow(/head_max_len/);
   });
 
+  it("applies temperature/temperature_by_options defaults when the config omits them", async () => {
+    const c = fixture.cases[0]!;
+    // The fixture config's `temperature` is [1, 1, 1] and `temperature_by_options` is {}, i.e.
+    // exactly the constructor's defaults, so predicting with those two keys deleted must still
+    // match the fixture result byte for byte.
+    const {
+      temperature: _temperature,
+      temperature_by_options: _temperatureByOptions,
+      ...rest
+    } = fixture.config;
+    const runner = new FixtureRunner(c);
+    const agent = new LayaAgent({ config: rest as never, tokenizer, runner, batchSize: 64 });
+    expect(await agent.predict(c.state, c.questions)).toEqual(c.result);
+  });
+
   it("attributes a failing chunk's inference error to its question ids", async () => {
     const c = fixture.cases.find((x) => x.name === "many_questions")!;
     const original = new Error("boom");
