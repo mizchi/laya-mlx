@@ -58,6 +58,8 @@ The float32 and float16 bundles were loaded in Chromium (Playwright headless, `-
 | float16 | WebGPU | 48 ms | 270 ms | 1,039 ms | 63/63 | 1.2e-2 |
 | float16 | wasm (CPU) | 901 ms | – | – | 63/63 | 9.1e-4 |
 
+A later run with onnxruntime-web 1.30.0 (`graphOptimizationLevel: "basic"` on WebGPU, first-call timings including shader compilation) gave 63/63 selected answers and a maximum probability error of 1.2e-2 for the float16 bundle; steady-state latency was not re-measured.
+
 Observations:
 
 - WebGPU float32 is exact to the same 1e-6 level as the native CPU provider.
@@ -66,7 +68,11 @@ Observations:
 - The wasm backend is about 20x slower than WebGPU on this hardware. WebGL is not a practical target for a 322M-parameter model.
 - Session creation took 0.7–5 s depending on file size. The 1.29 GB float32 file crashed the Chrome extension tab used for an earlier attempt; the headless run completed.
 
-The browser harness (fixture dump plus a static page and Playwright runner) is not yet part of this repository. A JavaScript runtime would additionally need ports of prompt construction (`laya_mlx.common.build_sequence`, marker positions), calibration and answer formatting, plus the tokenizer via `@huggingface/tokenizers` or Transformers.js.
+The browser runtime lives in `web/packages/laya-web` and the measurement page is `web/apps/demo/parity.html`;
+`pnpm test:browser` with `LAYA_MODEL_URL` set repeats the parity check above against the built site. With
+onnxruntime-web 1.30.0 the WebGPU backend runs the graph at `graphOptimizationLevel: "basic"` (its
+SkipLayerNormalization fusion fails on this graph; see `session.ts`). The published bundle is
+[mizchi/laya-multilingual-onnx](https://huggingface.co/mizchi/laya-multilingual-onnx).
 
 ## Size
 
