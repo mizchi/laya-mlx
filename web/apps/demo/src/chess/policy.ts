@@ -6,6 +6,7 @@
  */
 import type { PredictResult, Question, State } from "@laya-mlx/web";
 
+import { argmax } from "../argmax.ts";
 import { type Candidate, evaluateMaterial, shortlist } from "./candidates.ts";
 import type { ChessGame } from "./game.ts";
 
@@ -50,6 +51,11 @@ export function buildPrompt(game: ChessGame, candidates: Candidate[]): Prompt {
   return { state, questions };
 }
 
+/**
+ * Material deficit (in pawns) below the best candidate's score at which the
+ * shield overrides the model's proposal. 3 is a minor piece down — the point
+ * a beginner notices — so the shield steps in before the model gives one away.
+ */
 export const SHIELD_MARGIN = 3;
 
 export interface ShieldResult {
@@ -58,17 +64,12 @@ export interface ShieldResult {
   intervened: boolean;
 }
 
-function argmaxSan(probabilities: Record<string, number>, candidates: Candidate[]): string {
-  let best = candidates[0]!.san;
-  let bestValue = probabilities[best]!;
-  for (const candidate of candidates) {
-    const value = probabilities[candidate.san]!;
-    if (value > bestValue) {
-      bestValue = value;
-      best = candidate.san;
-    }
+function probabilityFor(probabilities: Record<string, number>, san: string): number {
+  const value = probabilities[san];
+  if (value === undefined) {
+    throw new Error(`applyShield: missing probability for ${san}`);
   }
-  return best;
+  return value;
 }
 
 export function applyShield(
@@ -76,7 +77,7 @@ export function applyShield(
   candidates: Candidate[],
   guarded: boolean,
 ): ShieldResult {
-  const proposed = argmaxSan(probabilities, candidates);
+  const proposed = argmax(candidates, (c) => probabilityFor(probabilities, c.san)).san;
   if (!guarded) {
     return { proposed, executed: proposed, intervened: false };
   }
@@ -85,7 +86,7 @@ export function applyShield(
   const chosen = candidates.find((c) => c.san === proposed) ?? best;
 
   const override =
-    chosen.score < best.score - SHIELD_MARGIN || (chosen.allowsMate && !best.allowsMate);
+    best.score - chosen.score >= SHIELD_MARGIN || (chosen.allowsMate && !best.allowsMate);
   const executed = override ? best.san : proposed;
 
   return { proposed, executed, intervened: executed !== proposed };

@@ -84,6 +84,28 @@ describe("applyShield", () => {
       "Best",
     );
   });
+  it("overrides at a deficit of exactly the shield margin", () => {
+    const boundary = [cand("Best", 2, true), cand("Boundary", -1)];
+    expect(applyShield({ Best: 0.1, Boundary: 0.9 }, boundary, true)).toEqual({
+      proposed: "Boundary",
+      executed: "Best",
+      intervened: true,
+    });
+  });
+  it("keeps a proposal just inside the shield margin", () => {
+    const almost = [cand("Best", 2, true), cand("Almost", -0.9)];
+    expect(applyShield({ Best: 0.1, Almost: 0.9 }, almost, true)).toEqual({
+      proposed: "Almost",
+      executed: "Almost",
+      intervened: false,
+    });
+  });
+  it("throws when a candidate's probability is missing", () => {
+    const missing = [cand("Best", 2, true), cand("Ok", 0)];
+    expect(() => applyShield({ Best: 0.5 }, missing, true)).toThrow(
+      "applyShield: missing probability for Ok",
+    );
+  });
 });
 
 describe("decide", () => {

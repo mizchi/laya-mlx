@@ -5,6 +5,7 @@
  */
 import type { PredictResult, Question, State } from "@laya-mlx/web";
 
+import { argmax } from "../argmax.ts";
 import { DIRECTIONS, type Direction, type MoveInfo, type SnakeGame } from "./game.ts";
 
 export type PromptKind = "compact" | "detailed";
@@ -111,28 +112,15 @@ export interface ShieldResult {
   intervened: boolean;
 }
 
-function argmaxBy<T extends string>(keys: readonly T[], value: (key: T) => number): T {
-  let best = keys[0]!;
-  let bestValue = value(best);
-  for (const key of keys) {
-    const v = value(key);
-    if (v > bestValue) {
-      bestValue = v;
-      best = key;
-    }
-  }
-  return best;
-}
-
 export function applyShield(
   probabilities: Record<Direction, number>,
   safeDirections: Direction[],
   guarded: boolean,
 ): ShieldResult {
-  const proposed = argmaxBy(DIRECTIONS, (d) => probabilities[d]);
+  const proposed = argmax(DIRECTIONS, (d) => probabilities[d]);
   const executed =
     guarded && !safeDirections.includes(proposed)
-      ? argmaxBy(safeDirections, (d) => probabilities[d])
+      ? argmax(safeDirections, (d) => probabilities[d])
       : proposed;
   return { proposed, executed, intervened: proposed !== executed };
 }
