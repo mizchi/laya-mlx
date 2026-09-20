@@ -42,12 +42,11 @@ interface AddedTokenInfo {
  * `@huggingface/tokenizers@0.2.0` (the underlying `inner` library) diverges from
  * the Rust crate in two ways this class works around; re-check both after any
  * upgrade of that dependency:
- * - Its `Tokenizer.encode_text` matches added tokens against already-normalized
- *   text and, for an lstrip token, `trimEnd()`s the *previous* split section in
- *   place. If that previous section is itself a whitespace-only added token
- *   (e.g. `"\n"`), `trimEnd()` empties it and it is then dropped as a
- *   zero-length section — silently deleting an added token instead of merely
- *   trimming whitespace around it.
+ * - Its own added-token matching, for an lstrip token, `trimEnd()`s the
+ *   *previous* split section in place. If that previous section is itself a
+ *   whitespace-only added token (e.g. `"\n"`), `trimEnd()` empties it and it
+ *   is then dropped as a zero-length section — silently deleting an added
+ *   token instead of merely trimming whitespace around it.
  * - Its lstrip/rstrip whitespace test is JS's built-in `trimEnd`/`trimStart`
  *   (effectively `\s`), not Unicode `White_Space`.
  *

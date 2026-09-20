@@ -173,4 +173,17 @@ describe("LayaTokenizer matching (minimal vocab)", () => {
       }),
     ).toThrow(/normalized=false and single_word=false/);
   });
+
+  it("rejects a Metaspace replacement that is not a single code point", () => {
+    expect(() =>
+      buildTokenizer({
+        pre_tokenizer: {
+          type: "Metaspace",
+          replacement: "ab",
+          prepend_scheme: "always",
+          split: true,
+        },
+      }),
+    ).toThrow(/single character/);
+  });
 });

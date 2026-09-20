@@ -9,7 +9,19 @@ export function serializeState(state: State): string {
   return typeof state === "string" ? state : pyJson(state, { ensureAscii: false });
 }
 
-/** Python `build_prefix`: [CLS] <type> question: instructions [SEP] [MASK] opt0 [MASK] opt1 ... [SEP]. */
+/**
+ * Python `build_prefix`: [CLS] <type> question: instructions [SEP] [MASK] opt0 [MASK] opt1 ... [SEP].
+ *
+ * Budget rules (`headMaxLen` bounds the head + options together, not the whole sequence):
+ * - Each option is encoded and capped at 48 tokens, *after* which its `[MASK]` id is
+ *   prepended (so the mask id itself doesn't count against the 48-token cap).
+ * - `optBudget` is what's left of `headMaxLen` once every (capped) option is accounted for.
+ *   If that leaves fewer than 16 tokens for the head, every option is shrunk to
+ *   `max(4, floor((headMaxLen - 16) / nOptions))` tokens and `optBudget` is recomputed from
+ *   the shrunk options — this is a second, tighter pass, not an additional cap on top of 48.
+ * - The head (`<type> question: <instructions>`) is then truncated to `optBudget` tokens, but
+ *   never below 8, even if that leaves the total over `headMaxLen` in a many-option case.
+ */
 export function buildPrefix(
   tokenizer: LayaTokenizer,
   q: InternalQuestion,
@@ -58,12 +70,20 @@ export function buildSequence(
   return { ids, markers: prefix.markers.filter((m) => m < maxLen), qtype: QTYPES[q.t] };
 }
 
-/** Python `collate_items`: right-padded int64 tensors with at least two marker slots. */
+/**
+ * Python `collate_items`: right-padded int64 tensors with at least two marker slots.
+ *
+ * Python's `pad_to_multiple`/`max_length` options are intentionally omitted here: the web
+ * fixtures were dumped without them, and callers are expected to chunk to `batchSize` first.
+ */
 export function collate(items: PreparedItem[], padId: number): Batch {
   if (items.length === 0) throw new Error("Cannot collate an empty batch");
   const rows = items.length;
-  const length = Math.max(...items.map((item) => item.ids.length));
-  const markers = Math.max(2, ...items.map((item) => item.markers.length));
+  // reduce, not `Math.max(...spread)`: a spread argument list has no formal size limit in the
+  // spec, but V8 still throws "Maximum call stack size exceeded" past roughly 60k-120k
+  // arguments, which a large batch could plausibly hit.
+  const length = items.reduce((max, item) => Math.max(max, item.ids.length), 0);
+  const markers = items.reduce((max, item) => Math.max(max, item.markers.length), 2);
   const batch: Batch = {
     rows,
     length,
