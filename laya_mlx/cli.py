@@ -1,4 +1,4 @@
-"""Command-line prediction and checkpoint conversion."""
+"""Command-line prediction, MLX checkpoint conversion, and ONNX export."""
 
 import argparse
 import json
@@ -12,12 +12,17 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="laya-mlx", description=__doc__)
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
-    for command in ("predict", "convert"):
+    for command in ("predict", "convert", "export-onnx"):
         sub = commands.add_parser(command)
         sub.add_argument("--model", default="convaiinnovations/laya")
         sub.add_argument("--subfolder")
         sub.add_argument("--revision")
-        sub.add_argument("--dtype", choices=DTYPES, default="float16")
+        if command == "export-onnx":
+            from .export_onnx import DTYPES as ONNX_DTYPES
+
+            sub.add_argument("--dtype", choices=ONNX_DTYPES, default="float32")
+        else:
+            sub.add_argument("--dtype", choices=DTYPES, default="float16")
         if command == "predict":
             source = sub.add_mutually_exclusive_group(required=True)
             source.add_argument("--state", help="Plain text input")
@@ -30,7 +35,18 @@ def main(argv=None):
         else:
             sub.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
-    if args.command == "convert":
+    if args.command == "export-onnx":
+        from .export_onnx import export_onnx
+
+        result = export_onnx(
+            args.model,
+            args.output,
+            dtype=args.dtype,
+            revision=args.revision,
+            subfolder=args.subfolder,
+        )
+        print(json.dumps({"output": str(result), "dtype": args.dtype}))
+    elif args.command == "convert":
         from .convert import convert
 
         result = convert(

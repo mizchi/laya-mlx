@@ -203,10 +203,24 @@ uv run laya-mlx predict \
 
 The export contains `model.safetensors`, encoder and agent configurations, tokenizer files and `mlx_config.json`. Existing output directories are never overwritten. This is a parameter-name/dtype conversion, not quantization or retraining. The source checkpoints already store FP16 weights; choosing FP32 increases arithmetic precision, not the precision of the source weights.
 
+## Export to ONNX
+
+```bash
+uv sync --extra onnx
+uv run laya-mlx export-onnx \
+  --model aac6fef/laya-multilingual-mlx \
+  --dtype float32 \
+  --output models/laya-multilingual-onnx
+python -m benchmarks.validate_onnx models/laya-multilingual-onnx \
+  --model aac6fef/laya-multilingual-mlx
+```
+
+The bundle contains `model.onnx` (opset 18, standard operators only, dynamic batch/sequence/marker axes), `rl_agent_config.json`, the tokenizer files and `onnx_config.json`. It runs in onnxruntime on any platform, including onnxruntime-web with the WebGPU backend. The graph is traced from a PyTorch mirror of the upstream model, so the export needs the `onnx` extra; the MLX runtime itself stays PyTorch-free. On the 63-question parity fixtures the float32 export matches the MLX runtime on 63/63 selected answers with a maximum probability error of 1.3e-6; float16 halves the file (647 MB) and matches 63/63 within 5.1e-4 on the CPU provider. [Export details, browser WebGPU measurements and size analysis](https://github.com/mizorewww/laya-mlx/blob/main/docs/ONNX_EXPORT.md).
+
 ## Tests and benchmarks
 
 ```bash
-uv sync --extra dev --extra reference --extra benchmark --extra demo
+uv sync --extra dev --extra reference --extra benchmark --extra demo --extra onnx
 source .venv/bin/activate
 gh repo clone NandhaKishorM/laya .upstream
 git -C .upstream checkout 6a5819129eb220570792e417e49723d697efd76f

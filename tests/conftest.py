@@ -23,6 +23,9 @@ def tiny_checkpoint(tmp_path):
         "num_attention_heads": 1,
         "local_attention": 16,
         "max_position_embeddings": 256,
+        "pad_token_id": 0,
+        "bos_token_id": 2,
+        "eos_token_id": 3,
     }
     agent_cfg = {
         "encoder": "test/tiny",

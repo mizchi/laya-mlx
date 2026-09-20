@@ -41,6 +41,9 @@ def environment():
         "transformers",
         "tokenizers",
         "huggingface-hub",
+        "onnx",
+        "onnxruntime",
+        "onnxscript",
     ):
         try:
             versions[package] = importlib.metadata.version(package)
