@@ -75,34 +75,61 @@ async function fetchBytes(
   if (!response.ok || !response.body) throw new Error(`Failed to fetch ${url}: ${response.status}`);
   const total = Number(response.headers.get("content-length")) || null;
   const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
+  // Annotated as `Uint8Array<ArrayBuffer>`, not the bare `Uint8Array` (which TS now widens to
+  // `Uint8Array<ArrayBufferLike>`, including `SharedArrayBuffer`), so `.buffer` below stays an
+  // `ArrayBuffer` and this can be passed to `Response`/`fetchBytes`'s own `ArrayBuffer` return type.
+  let bytes: Uint8Array<ArrayBuffer>;
   let received = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    received += value.byteLength;
-    onProgress?.({ file: url, received, total });
-  }
-  const bytes = new Uint8Array(received);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
+  if (total !== null) {
+    // Preallocate the full buffer up front instead of accumulating a chunk list: one allocation
+    // for the whole download keeps peak memory during fetch at ~1x the model size (ORT still
+    // makes its own copy when it loads the buffer into a session).
+    bytes = new Uint8Array(total);
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (received + value.byteLength > total) {
+        throw new Error("Response longer than Content-Length");
+      }
+      bytes.set(value, received);
+      received += value.byteLength;
+      onProgress?.({ file: url, received, total });
+    }
+  } else {
+    const chunks: Uint8Array[] = [];
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.byteLength;
+      onProgress?.({ file: url, received, total });
+    }
+    bytes = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
   }
   if (cache) {
     try {
       await cache.put(
         url,
-        new Response(bytes, { headers: { "content-length": String(received) } }),
+        new Response(bytes.subarray(0, received), {
+          headers: {
+            "content-length": String(received),
+            "content-type": "application/octet-stream",
+          },
+        }),
       );
     } catch {
       // Quota exceeded or storage disabled: the model still runs, it is just fetched again next time.
     }
   }
-  // `bytes` was allocated at exactly `received` bytes above, so its backing buffer has no
-  // unused trailing capacity to trim.
-  return bytes.buffer;
+  // `bytes` is already sized to exactly `received` bytes when the stream had no known length;
+  // when it was preallocated to `total` and the stream under-delivered, slice once to trim the
+  // unused tail so the returned ArrayBuffer is exactly `received` bytes.
+  return received === bytes.byteLength ? bytes.buffer : bytes.buffer.slice(0, received);
 }
 
 /** Download every file of a `laya-mlx export-onnx` bundle from a directory URL. */
@@ -121,19 +148,24 @@ export async function loadBundle(baseUrl: string, options: LoadOptions = {}): Pr
 
 /** Runs a Laya ONNX graph through onnxruntime-web. */
 export class OnnxRunner implements Runner {
-  private constructor(
-    readonly session: ort.InferenceSession,
-    readonly provider: Provider,
-  ) {}
+  readonly session: ort.InferenceSession;
+  readonly provider: Provider;
+
+  private constructor(session: ort.InferenceSession, provider: Provider) {
+    this.session = session;
+    this.provider = provider;
+  }
 
   static async create(model: ArrayBuffer, options: LoadOptions = {}): Promise<OnnxRunner> {
     if (options.wasmPaths) ort.env.wasm.wasmPaths = options.wasmPaths;
     const providers = options.providers ?? ["webgpu", "wasm"];
-    let lastError: unknown;
+    const attempts: { provider: Provider; error: unknown }[] = [];
     for (const provider of providers) {
       // `navigator` does not exist in Node, where the wasm provider is smoke-tested.
-      if (provider === "webgpu" && (typeof navigator === "undefined" || !("gpu" in navigator)))
+      if (provider === "webgpu" && (typeof navigator === "undefined" || !("gpu" in navigator))) {
+        attempts.push({ provider, error: "unavailable (navigator.gpu missing)" });
         continue;
+      }
       try {
         const session = await ort.InferenceSession.create(model, {
           executionProviders: [provider],
@@ -141,10 +173,13 @@ export class OnnxRunner implements Runner {
         });
         return new OnnxRunner(session, provider);
       } catch (error) {
-        lastError = error;
+        attempts.push({ provider, error });
       }
     }
-    throw new Error(`No execution provider could load the model: ${String(lastError)}`);
+    throw new Error(
+      `No execution provider could load the model: ${attempts.map((a) => `${a.provider}: ${String(a.error)}`).join("; ")}`,
+      { cause: attempts.at(-1)?.error },
+    );
   }
 
   async run(batch: Batch): Promise<RunnerOutput> {
