@@ -83,10 +83,18 @@ export class LayaAgent {
     let inputTokens = 0;
     for (let start = 0; start < items.length; start += this.batchSize) {
       const chunk = items.slice(start, start + this.batchSize);
-      const output = await this.runner.run(collate(chunk, this.tokenizer.padTokenId));
+      const chunkIds = questionIds.slice(start, start + chunk.length);
+      let output: RunnerOutput;
+      try {
+        output = await this.runner.run(collate(chunk, this.tokenizer.padTokenId));
+      } catch (error) {
+        throw new Error(`Laya inference failed for questions ${chunkIds.join(", ")}`, {
+          cause: error,
+        });
+      }
       const result = formatAnswers({
         config: this.config,
-        questionIds: questionIds.slice(start, start + chunk.length),
+        questionIds: chunkIds,
         internal: internal.slice(start, start + chunk.length),
         items: chunk,
         logits: output.logits,

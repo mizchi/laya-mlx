@@ -89,4 +89,20 @@ describe.skipIf(!dir)("LayaAgent (needs LAYA_TOKENIZER_DIR)", () => {
       () => new LayaAgent({ config: { ...fixture.config, head_max_len: 2000 }, tokenizer, runner }),
     ).toThrow(/head_max_len/);
   });
+
+  it("attributes a failing chunk's inference error to its question ids", async () => {
+    const c = fixture.cases.find((x) => x.name === "many_questions")!;
+    const original = new Error("boom");
+    const runner: Runner = {
+      run: async () => {
+        throw original;
+      },
+    };
+    const agent = new LayaAgent({ config: fixture.config, tokenizer, runner, batchSize: 16 });
+    const ids = Object.keys(c.questions).slice(0, 16);
+    await expect(agent.predict(c.state, c.questions)).rejects.toMatchObject({
+      message: `Laya inference failed for questions ${ids.join(", ")}`,
+      cause: original,
+    });
+  });
 });

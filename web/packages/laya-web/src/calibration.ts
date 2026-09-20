@@ -73,6 +73,11 @@ export function formatAnswers(input: FormatInput): PredictResult {
   for (let i = 0; i < actLogits.length; i++) {
     if (!Number.isFinite(actLogits[i])) throw new RangeError("Non-finite model outputs");
   }
+  for (const item of items) {
+    if (item.markers.length > markers) {
+      throw new RangeError("formatAnswers: item markers exceed the logits width");
+    }
+  }
   const answers: Record<string, Answer> = {};
   items.forEach((item, row) => {
     const qid = questionIds[row]!;
@@ -92,6 +97,9 @@ export function formatAnswers(input: FormatInput): PredictResult {
     };
     if (q.t === "choice") {
       const labels = Object.keys(q.crit);
+      // Loop, not `Math.max(...p)` + `indexOf`: a spread call has no formal argument-count
+      // limit but can blow V8's call stack on a large `p`, and `>` (not `>=`) keeps the first
+      // occurrence on a tie, matching Python's `argmax`.
       let best = 0;
       for (let i = 1; i < p.length; i++) if (p[i]! > p[best]!) best = i;
       answers[qid] = {

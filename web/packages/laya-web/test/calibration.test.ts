@@ -117,5 +117,10 @@ describe("formatAnswers", () => {
         /formatAnswers: internal length mismatch/,
       );
     });
+    it("rejects an item whose markers exceed the logits width", () => {
+      expect(() =>
+        formatAnswers({ ...base, items: [{ ids: [2, 1], markers: [1, 2, 3], qtype: 2 }] }),
+      ).toThrow(/formatAnswers: item markers exceed the logits width/);
+    });
   });
 });
