@@ -81,6 +81,79 @@ def checkpoint_metadata(path):
     }
 
 
+def build_prompt(game, moves, reachable, space, prompt):
+    safe = [m for m in moves if m.safe]
+    preferred = max(safe, key=lambda m: m.advance).direction if safe else "NONE"
+    if prompt == "compact":
+        state = (
+            f"Safe route: {'yes' if safe else 'no'}. "
+            f"Food reachable through empty cells: {'yes' if reachable else 'no'}."
+        )
+        questions = {
+            "move": {
+                "type": "choice",
+                "instructions": "Choose the best safe move toward food.",
+                "criteria": {
+                    m.direction: (
+                        "Blocked. Collision."
+                        if not m.legal
+                        else "Unsafe. Traps the snake."
+                        if not m.safe
+                        else "Safe. Eat food now. Best."
+                        if m.eats
+                        else "Safe. Best route to food."
+                        if m.direction == preferred
+                        else "Safe. Slower route."
+                    )
+                    for m in moves
+                },
+            },
+            "risk": {
+                "type": "noul",
+                "instructions": "Is a safe route available?",
+            },
+            "food": {
+                "type": "noul",
+                "instructions": "Is food reachable through empty cells?",
+            },
+        }
+    else:
+        descriptions = {}
+        for move in moves:
+            if not move.legal:
+                descriptions[move.direction] = f"Collision: {move.reason}. Unsafe."
+            elif not move.safe:
+                descriptions[move.direction] = "Unsafe route. Risk of trapping the snake."
+            elif move.eats:
+                descriptions[move.direction] = "Safe. Eat the food immediately. Best move."
+            elif move.direction == preferred:
+                descriptions[move.direction] = "Safe. Best progress toward food."
+            else:
+                descriptions[move.direction] = "Safe but less progress toward food."
+        state = (
+            f"Snake game. {len(safe)} safe directions available. "
+            f"Food reachable through empty cells: {'yes' if reachable else 'no'}. "
+            f"Open cells: {space}. Snake length: {len(game.body)}. "
+            f"{'There is a safe route forward.' if safe else 'The snake is trapped.'}"
+        )
+        questions = {
+            "move": {
+                "type": "choice",
+                "instructions": "Select the safest move with best progress toward food. Avoid collisions.",
+                "criteria": descriptions,
+            },
+            "risk": {
+                "type": "noul",
+                "instructions": "Is there a safe route forward for the snake?",
+            },
+            "food": {
+                "type": "noul",
+                "instructions": "Is food reachable through the currently empty cells?",
+            },
+        }
+    return state, questions, preferred
+
+
 @dataclass
 class Decision:
     probabilities: dict
@@ -131,63 +204,8 @@ class LayaPolicy:
         safe = [m for m in moves if m.safe]
         if not safe and self.guarded:
             raise RuntimeError("Cycle safety invariant violated: no safe action")
-        preferred = max(safe, key=lambda m: m.advance).direction if safe else "NONE"
         reachable, space = game.food_reachability()
-        descriptions = {}
-        for move in moves:
-            if not move.legal:
-                descriptions[move.direction] = f"Collision: {move.reason}. Unsafe."
-            elif not move.safe:
-                descriptions[move.direction] = "Unsafe route. Risk of trapping the snake."
-            elif move.eats:
-                descriptions[move.direction] = "Safe. Eat the food immediately. Best move."
-            elif move.direction == preferred:
-                descriptions[move.direction] = "Safe. Best progress toward food."
-            else:
-                descriptions[move.direction] = "Safe but less progress toward food."
-        state = (
-            f"Snake game. {len(safe)} safe directions available. "
-            f"Food reachable through empty cells: {'yes' if reachable else 'no'}. "
-            f"Open cells: {space}. Snake length: {len(game.body)}. "
-            f"{'There is a safe route forward.' if safe else 'The snake is trapped.'}"
-        )
-        questions = {
-            "move": {
-                "type": "choice",
-                "instructions": "Select the safest move with best progress toward food. Avoid collisions.",
-                "criteria": descriptions,
-            },
-            "risk": {
-                "type": "noul",
-                "instructions": "Is there a safe route forward for the snake?",
-            },
-            "food": {
-                "type": "noul",
-                "instructions": "Is food reachable through the currently empty cells?",
-            },
-        }
-        if self.prompt == "compact":
-            state = (
-                f"Safe route: {'yes' if safe else 'no'}. "
-                f"Food reachable through empty cells: {'yes' if reachable else 'no'}."
-            )
-            questions["move"]["instructions"] = "Choose the best safe move toward food."
-            questions["move"]["criteria"] = {
-                m.direction: (
-                    "Blocked. Collision."
-                    if not m.legal
-                    else "Unsafe. Traps the snake."
-                    if not m.safe
-                    else "Safe. Eat food now. Best."
-                    if m.eats
-                    else "Safe. Best route to food."
-                    if m.direction == preferred
-                    else "Safe. Slower route."
-                )
-                for m in moves
-            }
-            questions["risk"]["instructions"] = "Is a safe route available?"
-            questions["food"]["instructions"] = "Is food reachable through empty cells?"
+        state, questions, preferred = build_prompt(game, moves, reachable, space, self.prompt)
         inference_start = time.perf_counter()
         output = self.agent.predict(state, questions)
         inference_ms = (time.perf_counter() - inference_start) * 1000

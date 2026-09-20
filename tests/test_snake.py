@@ -143,6 +143,25 @@ def test_recording_preserves_actual_timestamps_and_probabilities(tmp_path):
     assert load_record(path) == (metadata, frames)
 
 
+def test_build_prompt_is_pure_and_matches_compact_layout():
+    from laya_mlx.snake.game import SnakeGame
+    from laya_mlx.snake.policy import build_prompt
+
+    game = SnakeGame(width=8, height=6, seed=3, initial_length=4)
+    moves = game.moves()
+    reachable, space = game.food_reachability()
+    state, questions, preferred = build_prompt(game, moves, reachable, space, "compact")
+    assert state.startswith("Safe route: yes. Food reachable through empty cells: ")
+    assert list(questions) == ["move", "risk", "food"]
+    assert questions["move"]["instructions"] == "Choose the best safe move toward food."
+    assert set(questions["move"]["criteria"]) == {"UP", "DOWN", "LEFT", "RIGHT"}
+    assert preferred in {"UP", "DOWN", "LEFT", "RIGHT"}
+    assert build_prompt(game, moves, reachable, space, "compact") == (state, questions, preferred)
+    detailed_state, detailed_questions, _ = build_prompt(game, moves, reachable, space, "detailed")
+    assert detailed_state.startswith("Snake game. ")
+    assert detailed_questions["move"]["instructions"].startswith("Select the safest move")
+
+
 @pytest.mark.parametrize("filename", ["snake-showcase.jsonl", "snake-fast.jsonl"])
 def test_published_real_showcase_replays_every_board_and_action_exactly(filename):
     from laya_mlx.snake.replay import load_record
