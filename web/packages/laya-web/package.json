@@ -1,0 +1,20 @@
+{
+  "name": "@laya-mlx/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@huggingface/tokenizers": "^0.2.0",
+    "onnxruntime-web": "^1.30.0"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.0"
+  }
+}
