@@ -1,0 +1,121 @@
+/**
+ * Owns the game, the pacing and the running statistics for the browser Snake
+ * demo. Rendering and keyboard/UI wiring are someone else's job. Ported from
+ * the terminal loop in ../../../laya_mlx/snake/cli.py: pause, ±2 fps within
+ * [1, 240], R resets with the next seed (seed + round - 1), a finished round
+ * starts the next one, and the best score / decisions-per-second stats are
+ * tracked across rounds.
+ */
+import { SnakeGame } from "./game.ts";
+import { decide, type Decision, type PolicyOptions, type SnakeAgent } from "./policy.ts";
+
+export interface LoopSettings extends PolicyOptions {
+  width: number;
+  height: number;
+  seed: number;
+  initialLength: number;
+  /** Paced decisions per second; ignored in max-speed mode. */
+  fps: number;
+}
+
+export interface LoopStats {
+  best: number;
+  round: number;
+  decisions: number;
+  interventions: number;
+  startedAt: number;
+  /** Decisions completed during the last second of wall clock. */
+  decisionsPerSecond: number;
+}
+
+/** Owns the game, the pacing and the running statistics; rendering is someone else's job. */
+export class GameLoop {
+  game: SnakeGame;
+  lastDecision: Decision | null = null;
+  paused = false;
+  maxSpeed = false;
+  fps: number;
+  readonly stats: LoopStats;
+
+  private readonly agent: SnakeAgent;
+  private readonly settings: LoopSettings;
+  private inFlight: Promise<void> | null = null;
+  private recent: number[] = [];
+
+  constructor(agent: SnakeAgent, settings: LoopSettings) {
+    this.agent = agent;
+    this.settings = settings;
+    this.fps = settings.fps;
+    this.game = this.newGame(settings.seed);
+    this.stats = {
+      best: 0,
+      round: 1,
+      decisions: 0,
+      interventions: 0,
+      startedAt: performance.now(),
+      decisionsPerSecond: 0,
+    };
+  }
+
+  private newGame(seed: number): SnakeGame {
+    return new SnakeGame(
+      this.settings.width,
+      this.settings.height,
+      seed,
+      this.settings.initialLength,
+    );
+  }
+
+  get elapsedSeconds(): number {
+    return (performance.now() - this.stats.startedAt) / 1000;
+  }
+
+  togglePause(): void {
+    this.paused = !this.paused;
+  }
+
+  changeSpeed(delta: number): void {
+    this.fps = Math.min(240, Math.max(1, this.fps + delta));
+  }
+
+  /** Next round with the next seed, like the terminal demo's R key. */
+  reset(): void {
+    this.stats.round += 1;
+    this.game = this.newGame(this.settings.seed + this.stats.round - 1);
+    this.lastDecision = null;
+  }
+
+  /** One decision + move. Concurrent calls share the in-flight decision instead of stacking. */
+  tick(): Promise<void> {
+    if (this.inFlight) return this.inFlight;
+    this.inFlight = this.advance().finally(() => {
+      this.inFlight = null;
+    });
+    return this.inFlight;
+  }
+
+  private async advance(): Promise<void> {
+    if (this.paused) return;
+    if (!this.game.alive || this.game.won) {
+      this.reset();
+      return;
+    }
+    const options: PolicyOptions = { guarded: this.settings.guarded, prompt: this.settings.prompt };
+    const decision = await decide(this.agent, this.game, options);
+    this.lastDecision = decision;
+    this.game.step(decision.executed);
+    this.stats.decisions += 1;
+    if (decision.intervened) this.stats.interventions += 1;
+    this.stats.best = Math.max(this.stats.best, this.game.score);
+    const now = performance.now();
+    this.recent.push(now);
+    this.recent = this.recent.filter((t) => now - t <= 1000);
+    this.stats.decisionsPerSecond = this.recent.length;
+  }
+
+  /** Milliseconds to wait before the next tick in paced mode; 0 in max-speed mode. */
+  delayAfter(tickStartedAt: number): number {
+    if (this.maxSpeed) return 0;
+    return Math.max(0, 1000 / this.fps - (performance.now() - tickStartedAt));
+  }
+}
