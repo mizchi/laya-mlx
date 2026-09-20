@@ -27,6 +27,19 @@ describe("toInternal", () => {
   ])("rejects %j", (question, message) => {
     expect(() => toInternal(question as never)).toThrow(message);
   });
+  it("validates criteria before serializing instructions", () => {
+    expect(() => toInternal({ type: "choice", instructions: NaN, criteria: [] } as never)).toThrow(
+      /nonempty dictionary or list/,
+    );
+  });
+  it("reprs the unknown type like Python (quoted string, or None when missing)", () => {
+    expect(() => toInternal({ type: "other", instructions: "x" } as never)).toThrow(
+      "Unknown question type 'other'; expected choice, score, or noul",
+    );
+    expect(() => toInternal({ instructions: "x" } as never)).toThrow(
+      "Unknown question type None; expected choice, score, or noul",
+    );
+  });
 });
 
 describe("renderOptions", () => {

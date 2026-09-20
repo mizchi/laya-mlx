@@ -10,13 +10,14 @@ export function toInternal(question: Question): InternalQuestion {
   if (!isPlainObject(question)) throw new Error("Each question must be a dictionary");
   const kind = question.type as QuestionType;
   if (!(kind in QTYPES)) {
-    throw new Error(
-      `Unknown question type ${JSON.stringify(kind)}; expected choice, score, or noul`,
-    );
+    const repr = kind === undefined ? "None" : `'${String(kind)}'`;
+    throw new Error(`Unknown question type ${repr}; expected choice, score, or noul`);
   }
   if (!("instructions" in question)) throw new Error("Question is missing instructions");
-  const raw = question.instructions;
-  const ins = typeof raw === "string" ? raw : pyJson(raw as Json);
+  const computeIns = () => {
+    const raw = question.instructions;
+    return typeof raw === "string" ? raw : pyJson(raw as Json);
+  };
   let criteria: unknown = (question as { criteria?: unknown }).criteria;
   if (kind === "choice") {
     if (Array.isArray(criteria)) {
@@ -29,20 +30,20 @@ export function toInternal(question: Question): InternalQuestion {
     if (!isPlainObject(criteria) || Object.keys(criteria).length === 0) {
       throw new Error("Choice criteria must be a nonempty dictionary or list");
     }
-    return { t: "choice", ins, crit: criteria as Record<string, Criterion | null> };
+    return { t: "choice", ins: computeIns(), crit: criteria as Record<string, Criterion | null> };
   }
   if (kind === "score") {
     if (!Array.isArray(criteria) || criteria.length === 0) {
       throw new Error("Score criteria must be a nonempty list");
     }
-    return { t: "score", ins, crit: criteria as Criterion[] };
+    return { t: "score", ins: computeIns(), crit: criteria as Criterion[] };
   }
   if (criteria !== undefined && criteria !== null && !isPlainObject(criteria)) {
     throw new Error("Noul criteria must be a dictionary with false/true descriptions");
   }
   return {
     t: "noul",
-    ins,
+    ins: computeIns(),
     crit: (criteria as { false?: Criterion; true?: Criterion } | null | undefined) ?? null,
   };
 }
