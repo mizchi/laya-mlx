@@ -82,6 +82,11 @@ def checkpoint_metadata(path):
 
 
 def build_prompt(game, moves, reachable, space, prompt):
+    """Return ``(state, questions, preferred)`` for one board.
+
+    ``prompt`` is ``"compact"`` or ``"detailed"``. The strings are the model
+    contract shared with the browser port, so changing them changes decisions.
+    """
     safe = [m for m in moves if m.safe]
     preferred = max(safe, key=lambda m: m.advance).direction if safe else "NONE"
     if prompt == "compact":

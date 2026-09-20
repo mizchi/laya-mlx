@@ -64,6 +64,7 @@ def main():
         {"width": 4, "height": 4, "seed": 1, "initial_length": 2, "steps": 40},
     ]
     fixture = {
+        # 5x4 has no game; it covers the odd-height transpose branch of hamiltonian_cycle.
         "cycles": {
             f"{w}x{h}": hamiltonian_cycle(w, h) for w, h in ((24, 16), (8, 6), (4, 4), (5, 4))
         },
