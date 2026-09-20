@@ -61,6 +61,10 @@ function answerChoice(
   };
 }
 
+// Demo-only heuristic: it keys off the literal "yes" in `buildPrompt`'s compact
+// state text ("Safe route: yes" / "Food reachable through empty cells: yes").
+// It does not parse the question or reason about the board; if that wording
+// ever changes, this silently degrades to the 0.4 "no" case instead of erroring.
 function answerNoul(_question: NoulQuestion, state: State): NoulAnswer {
   const noul = /yes/.test(String(state)) ? 0.9 : 0.4;
   return {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { SnakeGame } from "../../src/snake/game.ts";
-import { applyShield, buildPrompt, decide } from "../../src/snake/policy.ts";
+import { applyShield, buildPrompt, decide, type SnakeAgent } from "../../src/snake/policy.ts";
 import { StubAgent } from "../../src/snake/stub-agent.ts";
 import { snakeFixture } from "./fixtures.ts";
 
@@ -76,6 +76,75 @@ describe("decide", () => {
     const game = new SnakeGame(8, 6, 3, 4);
     const bad = new StubAgent({ probability: () => Number.NaN });
     await expect(decide(bad, game, { guarded: true, prompt: "compact" })).rejects.toThrow(
+      /invalid probability/,
+    );
+  });
+});
+
+describe("decide rejects malformed answers", () => {
+  it("throws when the move answer is missing", async () => {
+    const game = new SnakeGame(8, 6, 3, 4);
+    const agent = {
+      predict: async () => ({
+        model: "laya-rl-agent",
+        answers: {
+          risk: { type: "noul", confidence: 0.9, action: { act_probability: 1 }, noul: 0.9 },
+          food: { type: "noul", confidence: 0.9, action: { act_probability: 1 }, noul: 0.9 },
+        },
+        usage: { input_tokens: 1, output_tokens: 0 },
+      }),
+    } as SnakeAgent;
+    await expect(decide(agent, game, { guarded: true, prompt: "compact" })).rejects.toThrow(/move/);
+  });
+
+  it("throws when the risk answer has the wrong type", async () => {
+    const game = new SnakeGame(8, 6, 3, 4);
+    const agent = {
+      predict: async () => ({
+        model: "laya-rl-agent",
+        answers: {
+          move: {
+            type: "choice",
+            confidence: 0.5,
+            action: { act_probability: 1 },
+            choice: "UP",
+            probabilities: { UP: 0.4, DOWN: 0.3, LEFT: 0.2, RIGHT: 0.1 },
+          },
+          risk: {
+            type: "choice",
+            confidence: 0.5,
+            action: { act_probability: 1 },
+            choice: "UP",
+            probabilities: { UP: 1 },
+          },
+          food: { type: "noul", confidence: 0.9, action: { act_probability: 1 }, noul: 0.9 },
+        },
+        usage: { input_tokens: 1, output_tokens: 0 },
+      }),
+    } as SnakeAgent;
+    await expect(decide(agent, game, { guarded: true, prompt: "compact" })).rejects.toThrow(/risk/);
+  });
+
+  it("throws when the move answer is missing a direction's probability", async () => {
+    const game = new SnakeGame(8, 6, 3, 4);
+    const agent = {
+      predict: async () => ({
+        model: "laya-rl-agent",
+        answers: {
+          move: {
+            type: "choice",
+            confidence: 0.5,
+            action: { act_probability: 1 },
+            choice: "UP",
+            probabilities: { UP: 0.5, DOWN: 0.3, LEFT: 0.2 },
+          },
+          risk: { type: "noul", confidence: 0.9, action: { act_probability: 1 }, noul: 0.9 },
+          food: { type: "noul", confidence: 0.9, action: { act_probability: 1 }, noul: 0.9 },
+        },
+        usage: { input_tokens: 1, output_tokens: 0 },
+      }),
+    } as SnakeAgent;
+    await expect(decide(agent, game, { guarded: true, prompt: "compact" })).rejects.toThrow(
       /invalid probability/,
     );
   });
