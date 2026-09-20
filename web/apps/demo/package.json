@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@laya-mlx/web": "workspace:*",
-    "onnxruntime-web": "^1.30.0"
+    "onnxruntime-web": "1.30.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

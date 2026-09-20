@@ -6,6 +6,24 @@ import { LayaTokenizer } from "./tokenizer.ts";
 import type { TokenizerConfig, TokenizerJson } from "./tokenizer.ts";
 import type { AgentConfig, Batch, RunnerOutput } from "./types.ts";
 
+/**
+ * A minimal, valid batch (1 row, length 8, 2 markers) used to probe a freshly created session
+ * before accepting its execution provider. Token/marker values are arbitrary (pad id 0, marker
+ * positions 1 and 2) — the graph does not care what they are, only that the shapes are valid.
+ */
+function probeBatch(): Batch {
+  return {
+    rows: 1,
+    length: 8,
+    markers: 2,
+    inputIds: new BigInt64Array(8).fill(0n),
+    attentionMask: new BigInt64Array(8).fill(1n),
+    markerPos: BigInt64Array.from([1n, 2n]),
+    markerMask: Uint8Array.from([1, 1]),
+    qtype: BigInt64Array.from([0n]),
+  };
+}
+
 export type Provider = "webgpu" | "wasm";
 
 export interface LoadProgress {
@@ -166,19 +184,39 @@ export class OnnxRunner implements Runner {
         attempts.push({ provider, error: "unavailable (navigator.gpu missing)" });
         continue;
       }
+      let session: ort.InferenceSession | undefined;
       try {
-        const session = await ort.InferenceSession.create(model, {
+        session = await ort.InferenceSession.create(model, {
           executionProviders: [provider],
           // The "extended"/"all" graph transformations include a SkipLayerNormalization fusion
           // that onnxruntime-web's WebGPU (JSEP) kernel cannot run against this checkpoint's
           // fp16 weights ("Error: Beta must be 1D", reproduced with a 1-row synthetic batch
           // regardless of input shape); "basic" skips that fusion and runs correctly. wasm is
-          // unaffected, so it keeps the full optimization level.
+          // unaffected, so it keeps the full optimization level. This pins the exact
+          // onnxruntime-web version (see package.json) so the workaround does not silently stop
+          // applying (or become unnecessary) under a caret range.
+          //
+          // Upstream: microsoft/onnxruntime#27455 (closed by #27459, merged 2026-02-26)
+          // describes the same failure mode — SkipLayerNormFusion applied when gamma/beta are
+          // not 1D — on the CPU EP; that fix shipped well before onnxruntime-web 1.30.0
+          // (released 2026-09-14), but our failure still reproduces on the WebGPU (JSEP) EP, so
+          // this looks like a residual/JSEP-specific case of the same root cause (the PR's own
+          // fusion check falls back to "allow fusion" when static shape info is unavailable) or
+          // a separate JSEP kernel bug, rather than a regression that fix should have caught. No
+          // WebGPU-specific issue found as of 2026-09-20; re-test when upgrading.
           graphOptimizationLevel: provider === "webgpu" ? "basic" : "all",
         });
-        return new OnnxRunner(session, provider);
+        const runner = new OnnxRunner(session, provider);
+        // `InferenceSession.create` only validates the graph; it does not catch every backend
+        // problem (see the WebGPU note above, which surfaces on the first `run`, not here). Probe
+        // with a tiny synthetic batch through the real `run` code path before accepting this
+        // provider; this also front-loads WebGPU shader compilation for this shape, so the probe
+        // itself is not wasted work.
+        await runner.run(probeBatch());
+        return runner;
       } catch (error) {
         attempts.push({ provider, error });
+        if (session) await session.release().catch(() => {});
       }
     }
     throw new Error(

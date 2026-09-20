@@ -8,12 +8,11 @@ test("index page renders the heading and the parity link", async ({ page }) => {
 
 const modelUrl = process.env.LAYA_MODEL_URL;
 
-test.skip(
-  !modelUrl,
-  "set LAYA_MODEL_URL=<bundle directory URL> to run the real-model parity check",
-);
-
 test("browser predictions match the Python fixtures", async ({ page }) => {
+  test.skip(
+    !modelUrl,
+    "set LAYA_MODEL_URL=<bundle directory URL> to run the real-model parity check",
+  );
   const lines: string[] = [];
   page.on("console", (message) => lines.push(message.text()));
   await page.goto(`/parity.html?model=${encodeURIComponent(modelUrl!)}`);
