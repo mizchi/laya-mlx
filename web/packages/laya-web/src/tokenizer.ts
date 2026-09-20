@@ -9,7 +9,7 @@ interface AddedToken {
   single_word: boolean;
 }
 
-interface TokenizerJson {
+export interface TokenizerJson {
   added_tokens: AddedToken[];
   normalizer: { type: string; pattern?: { String?: string }; content?: string } | null;
   pre_tokenizer: {
@@ -20,7 +20,7 @@ interface TokenizerJson {
   } | null;
 }
 
-interface TokenizerConfig {
+export interface TokenizerConfig {
   cls_token?: string | { content: string };
   sep_token?: string | { content: string };
   pad_token?: string | { content: string };
