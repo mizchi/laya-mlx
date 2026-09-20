@@ -14,7 +14,7 @@ import numpy as np
 from laya_mlx import Agent
 from laya_mlx.agent import collate_items
 
-from .common import parity_cases
+from .common import environment, parity_cases
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -67,12 +67,15 @@ def main():
     parser.add_argument(
         "--output", type=Path, default=ROOT / "web/fixtures/parity-multilingual.json"
     )
+    parser.add_argument("--revision", default=None)
     args = parser.parse_args()
-    agent = Agent(args.model, dtype="float32", device="cpu", batch_size=16)
+    agent = Agent(args.model, dtype="float32", device="cpu", batch_size=16, revision=args.revision)
     tok = agent.tok
     cases = []
     for name, state, questions in parity_cases():
         items, _ = agent.prepare(state, questions)
+        # One batch per case: predict() below chunks at batch_size, so its rows may be
+        # padded differently. Compare forward outputs with a tolerance.
         batch = collate_items(items, tok.pad_token_id)
         logits, act = (np.asarray(x, dtype=np.float32) for x in agent.forward(batch))
         cases.append(
@@ -89,6 +92,10 @@ def main():
         )
     fixture = {
         "model": args.model,
+        # HF cache path: .../snapshots/<sha> -> the resolved snapshot commit sha;
+        # local directory: the directory name.
+        "revision": agent.model_dir.name,
+        "packages": environment()["packages"],
         "config": agent.cfg,
         "special_tokens": {
             "cls": tok.cls_token_id,
