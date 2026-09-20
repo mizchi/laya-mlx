@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { GameLoop } from "../../src/snake/loop.ts";
 import type { SnakeAgent } from "../../src/snake/policy.ts";
-import { StubAgent } from "../../src/snake/stub-agent.ts";
+import { StubAgent } from "../../src/stub-agent.ts";
 
 const settings = {
   width: 8,

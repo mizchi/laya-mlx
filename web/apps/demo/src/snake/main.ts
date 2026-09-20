@@ -8,7 +8,7 @@ import { $ } from "../dom.ts";
 import { loadDemoAgent, type LoaderUi } from "../loader.ts";
 import { GameLoop, type LoopSettings } from "./loop.ts";
 import type { PromptKind, SnakeAgent } from "./policy.ts";
-import { StubAgent } from "./stub-agent.ts";
+import { StubAgent } from "../stub-agent.ts";
 import { SnakeView, type GameState } from "./view.ts";
 
 /** How long the final board of a round stays on screen before the next round starts. */

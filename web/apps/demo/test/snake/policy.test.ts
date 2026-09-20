@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { SnakeGame } from "../../src/snake/game.ts";
 import { applyShield, buildPrompt, decide, type SnakeAgent } from "../../src/snake/policy.ts";
-import { StubAgent } from "../../src/snake/stub-agent.ts";
+import { StubAgent } from "../../src/stub-agent.ts";
 import { snakeFixture } from "./fixtures.ts";
 
 describe("buildPrompt", () => {

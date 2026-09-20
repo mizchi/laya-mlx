@@ -1,7 +1,9 @@
 /**
  * A model-free stand-in for the real Laya agent. It answers questions with a
  * cheap, deterministic heuristic instead of running inference, so the policy
- * and shield logic can be exercised without a checkpoint.
+ * and shield logic can be exercised without a checkpoint. Shared by the Snake
+ * and chess pages: the "Best"/"Safe" heuristics below match both planners'
+ * description templates.
  */
 import type {
   Answer,
